@@ -1,0 +1,45 @@
+par         name                    unit        min     max
+dir         |Wind   direction|      m/s         0       360
+ec15        |Soil EC 15cm|          mS/cm       0       25
+ec30        |Soil EC 30cm|          mS/cm       0       25
+ec45        |Soil EC 45cm|          mS/cm       0       25
+ec60        |Soil EC 60cm|          mS/cm       0       25
+ec90        |Soil EC 90cm|          mS/cm       0       25
+gust        |Gust speed|            m/s         0       89
+par         PAR                     µmol/m²/s   0       5000
+rh          |Relative humidity|     -           0       1
+sol         |Solar radiation|       W/m²        0       1750
+stemp15     |Soil temperature 15cm| °C          10      30
+stemp30     |Soil temperature 30cm| °C          10      30
+stemp45     |Soil temperature 45cm| °C          10      30
+stemp60     |Soil temperature 60cm| °C          10      30
+stemp90     |Soil temperature 90cm| °C          10      30
+temp        |Air temperature|       °C          -2      32
+vwc15       |Soil moisture 15cm|    m³/m³       0       1
+vwc30       |Soil moisture 30cm|    m³/m³       0       1
+vwc45       |Soil moisture 45cm|    m³/m³       0       1
+vwc60       |Soil moisture 60cm|    m³/m³       0       1
+vwc90       |Soil moisture 90cm|    m³/m³       0       1
+wind        |Wind speed|            m/s         0       89
+tips        Tips                    -           0       300
+prec        Precipitation           mm          0       60
+flow        |Flow rate|             m³/h        0       30
+doc         DOC                     mg/L        0       25
+dwl         |Dist. to water level|  m           0       4
+wl          |Water level|           m           0       4
+disch       Discharge               m³/s        0       80
+elc         EC                      µS/cm       0       120
+nit         Nitrate-N               mg/L        0       4
+load        |Nitrate-N load|        g/s         0       150
+tcd         |Temperature (cond.)|   °C          5       30
+toc         TOC                     mg/L        0       75
+tsp         |Temperature (spec.)|   °C          5       30
+tur         Turbidity               FTU         0       1400
+uv2         UV254                   Abs/m       0       500
+uv4         UV436                   Abs/m       0       500
+batv        Battery                 %           0       100
+batp        Battery                 mV          0       9700
+logp        Pressure                kPa         0       100
+logt        |Logger temperature|    °C          0       30
+nd          Unknown                 -           NA      NA
+sal         Salinity                psu         2       42
