@@ -6,159 +6,108 @@ import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
 
 
-def create_df_of_file(filename, measure, interval, directory="Data", ):
-    """
+def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
+    start_date = "2015-04-28 11:00:00"
 
-    :param filename:
-    :param measure:
-    :param interval:
-    :param directory:
-    :return:
-    """
-    dataframe = pd.read_csv(os.path.join(directory, filename))
+    df = pd.read_csv(filepath)
 
-    # set start of dataframe to time when it was in Kenya
-    time = dataframe["date"].tolist()
-    start = time.index("2015-04-28 11:00:00")
-    dataframe = dataframe[start:]
+    df = df[df["date"].str.endswith(valid_time_suffix)] if valid_time_suffix else df
 
-    # remove all non valid measure times (only measurements in 10minute steps are valid)
-    dataframe = dataframe[dataframe["date"].str[-4:] == "0:00"]
-    time = dataframe["date"].tolist()
+    df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d %H:%M:%S")
+    df = df[df["date"] >= pd.to_datetime(start_date)]
 
-    dataframe['date'] = pd.to_datetime(dataframe.pop('date'), format='%Y-%m-%d %H:%M:%S')
-    dataframe.index = dataframe["date"]
+    df.set_index("date", inplace=True)
+    return df
 
-    dataframe = dataframe.resample(interval).mean()
+def create_standard_measurement_df(filename, measure, interval, directory="Data"):
+    filepath = os.path.join(directory, filename)
+    df = load_and_trim_dataframe(filepath)
 
-    # linear interpolation to fill NA values
-    dataframe = dataframe.interpolate()
+    df = df.resample(interval).mean()
+    df = df.interpolate()
 
-    # rename value column to actual measure category
-    dataframe.rename(columns={"value": f"{filename[:3]}_{measure}"}, inplace=True) #Problem mit Datensatz NF -> if-Formulierung nötig
+    colname = f"{filename[:3]}_{measure}"
+    df.rename(columns={"value": colname}, inplace=True)
 
-    dataframe.reset_index(inplace=True, drop=True)
+    df.reset_index(drop=True, inplace=True)
+    return df
 
-    print(dataframe)
+def create_precipitation_df(reference_times, station, interval, directory="Data"):
+    filepath = os.path.join(directory, f"{station}-prec.csv")
+    df = load_and_trim_dataframe(filepath, valid_time_suffix=None)
 
-    return dataframe, time
+    df = df.interpolate()
+    df.rename(columns={"value": f"{station}_prec"}, inplace=True)
 
+    df = df[df.index.isin(pd.to_datetime(reference_times))]
 
-def create_prec_df(time_df, station, interval):
-    """
-    This function is needed because the prec data had way more measurements than all the other data.
-    """
+    df = df.resample(interval).sum()
+    df.reset_index(inplace=True)
 
-    dataframe = pd.read_csv(os.path.join("Data", f"{station}-prec.csv"))
-    time = dataframe["date"].tolist()
-    start = time.index("2015-04-28 11:00:00")
-    time = time[start:]
-    dataframe = dataframe[start:]
-
-    # linear interpolation to fill NA values
-    dataframe = dataframe.interpolate("linear")
-
-    dataframe.rename(columns={"value": f"{station}_prec"}, inplace=True)
-
-    dataframe.set_index('date', inplace=True)
-
-    # remove all measurement times that aren't in the data of the time_df parameter
-    to_remove = list(set(time).difference(set(time_df)))
-    dataframe.drop(labels=to_remove, inplace=True, errors="ignore")
-
-    dataframe.reset_index(inplace=True, drop=False)
-
-    dataframe['date'] = pd.to_datetime(dataframe.pop('date'), format='%Y-%m-%d %H:%M:%S')
-    dataframe.index = dataframe["date"]
-    dataframe.drop(labels="date", axis=1, inplace=True)
-
-    dataframe = dataframe.resample(interval).sum()
-
-    dataframe.reset_index(inplace=True)
-
-    return dataframe
+    return df
 
 
-#"prec" ist absichtlich nicht in create_filenames vorhanden
-
-def create_filenames(stations):
-    categories_kfs = ["dir", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind"]
-    categories_nf = ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl"]
-    categories_sha = ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl"]
-    categories_tf2 = ["temp"]
-    categories_tf1 = ["temp"]
-    categories_ttp = ["disch", "doc", "nit"]
-    categories_wsh = ["dir", "ec15", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind"]
-    filenames = []
-    for station in stations:
-
-        if station == "KFS":
-            for category in categories_kfs:
-                filenames.append(f"{station}-{category}.csv")
-
-        elif station == "NF":
-            for category in categories_nf:
-                filenames.append(f"{station}-{category}.csv")
-
-        elif station == "SHA":
-            for category in categories_sha:
-                filenames.append(f"{station}-{category}.csv")
-
-        elif station == "TF2":
-            for category in categories_tf2:
-                filenames.append(f"{station}-{category}.csv")
-
-        elif station == "TF1":
-            for category in categories_tf1:
-                filenames.append(f"{station}-{category}.csv")
-
-        elif station == "TTP":
-            for category in categories_ttp:
-                filenames.append(f"{station}-{category}.csv")
-
-        elif station == "WSH":
-            for category in categories_wsh:
-                filenames.append(f"{station}-{category}.csv")
-
+def create_filenames(stations, measurements):
+    filenames = [
+        f"{station}-{measure}.csv"
+        for station in stations
+        for measure in measurements.get(station, [])
+        if measure != "prec"  # "prec" wird separat behandelt
+    ]
     return filenames
 
-
-def load_data(stations, interval= "10min"):
-    filenames = create_filenames(stations)
+def load_data(stations, measurements, interval="10min"):
+    filenames = create_filenames(stations, measurements)
     frames = []
 
     for filename in filenames:
         measure = filename.split("-")[1].split(".")[0]
-        frames.append(create_df_of_file(filename, measure, interval=interval)[0])
+        frames.append(create_standard_measurement_df(filename, measure, interval=interval)[0])
 
-    _, df_time = create_df_of_file("SHA-nit.csv", "nit", interval=interval)
-    sha_prec_df = create_prec_df(df_time, "SHA", interval=interval)
-    fun_prec_df = create_prec_df(df_time, "Fun", interval=interval)
-    kur_prec_df = create_prec_df(df_time, "Kur", interval=interval)
-    wsh_prec_df = create_prec_df(df_time, "WSH", interval=interval)
-    cha_prec_df = create_prec_df(df_time, "Cha", interval=interval)
-    chi_prec_df = create_prec_df(df_time, "Chi", interval=interval)
-    fin_prec_df = create_prec_df(df_time, "Fin", interval=interval)
-    kfs_prec_df = create_prec_df(df_time, "KFS", interval=interval)
-    nf_prec_df = create_prec_df(df_time, "NF", interval=interval)
-    tf2_prec_df = create_prec_df(df_time, "TF2", interval=interval)
-    ttp_prec_df = create_prec_df(df_time, "TTP", interval=interval)
-    frames.append(sha_prec_df)
-    frames.append(fun_prec_df)
-    frames.append(kur_prec_df)
-    frames.append(wsh_prec_df)
-    frames.append(cha_prec_df)
-    frames.append(chi_prec_df)
-    frames.append(fin_prec_df)
-    frames.append(kfs_prec_df)
-    frames.append(nf_prec_df)
-    frames.append(tf2_prec_df)
-    frames.append(ttp_prec_df)
+    #Referenz-Zeitreihe für Zeitindex aller Niederschlagsdaten
+    _, df_time = create_standard_measurement_df("SHA-nit.csv", "nit", interval=interval)
+
+    for station in stations:
+        if "prec" in measurements.get(station, []):
+            prec_df = create_precipitation_df(df_time, station, interval)
+            frames.append(prec_df)
 
     df = pd.concat(frames, axis=1)
-
     return df
 
+
+def split_dataset(df, target_feature, split_ratios=(0.6, 0.2, 0.2)):
+    n = len(df)
+    train_end = int(n * split_ratios[0])
+    val_end = train_end + int(n * split_ratios[1])
+
+    train_df = df[:train_end]
+    val_df = df[train_end:val_end]
+    test_df = df[val_end:]
+
+    return train_df, val_df, test_df
+
+def scale_features(train_df, val_df, test_df, target_feature):
+    scaler = MinMaxScaler()
+    scaler.fit(train_df.drop(columns=[target_feature]))
+
+    train_scaled = scaler.transform(train_df.drop(columns=[target_feature]))
+    val_scaled = scaler.transform(val_df.drop(columns=[target_feature]))
+    test_scaled = scaler.transform(test_df.drop(columns=[target_feature]))
+
+    return train_scaled, val_scaled, test_scaled, scaler
+
+def prepare_targets(train_df, val_df, test_df, target_feature):
+    y_train = np.array(train_df[target_feature], ndmin=2).T
+    y_val = np.array(val_df[target_feature], ndmin=2).T
+    y_test = np.array(test_df[target_feature], ndmin=2).T
+    return y_train, y_val, y_test
+
+def make_tf_datasets(x_train, x_val, x_test, y_train, y_val, y_test, seq_length, batch_size):
+    ds_train = create_tf_dataset(x_train, y_train, seq_length, batch_size)
+    ds_val = create_tf_dataset(x_val, y_val, seq_length, batch_size)
+    ds_test = create_tf_dataset(x_test, y_test, seq_length, batch_size)
+    return ds_train, ds_val, ds_test
 
 def create_tf_dataset(data, target, seq_length=3, batch_size=32):
     data = data[:-seq_length]
@@ -170,47 +119,28 @@ def create_tf_dataset(data, target, seq_length=3, batch_size=32):
 
     return ds
 
-
-def create_final_ds(station, stations, target_feature, interval=None, batch_size=32, seq_length=3):
-
-    df = load_data(stations)
+def create_final_ds(station, stations, measurements, target_feature,
+                    interval="10min", batch_size=32, seq_length=3):
+    df = load_data(stations, measurements, interval=interval)
     df.to_pickle(f"{station}-dataframe.pkl")
-
-    df = df.drop([], axis=1)
-
     df.drop(columns=df.columns[df.columns.duplicated()], inplace=True)
 
-    # split data into train (60%), val (20%) and test (20%) data
-    n = len(df)
-    train_df = df[0:int(n * 0.6)]
-    val_df = df[int(n * 0.6):int(n * 0.8)]
-    test_df = df[int(n * 0.8):]
+    train_df, val_df, test_df = split_dataset(df, target_feature)
+    x_train, x_val, x_test, _ = scale_features(train_df, val_df, test_df, target_feature)
+    y_train, y_val, y_test = prepare_targets(train_df, val_df, test_df, target_feature)
+    train_ds, val_ds, test_ds = make_tf_datasets(x_train, x_val, x_test, y_train, y_val, y_test, seq_length, batch_size)
 
-    feature_train = train_df.drop([target_feature], axis=1)
-    feature_val = val_df.drop([target_feature], axis=1)
-    feature_test = test_df.drop([target_feature], axis=1)
+    return train_ds, val_ds, test_ds, train_df, test_df, val_df
 
-    feature_scaler = MinMaxScaler(feature_range=(0, 1))
-    feature_scaler.fit(feature_train.to_numpy())
-    feature_train_scaled = feature_scaler.transform(feature_train)
-    feature_val_scaled = feature_scaler.transform(feature_val)
-    feature_test_scaled = feature_scaler.transform(feature_test)
+from benchmark_szenario import get_benchmark_config
 
-    target_train = np.array(train_df[target_feature], ndmin=2).T
-    target_val = np.array(val_df[target_feature], ndmin=2).T
-    target_test = np.array(test_df[target_feature], ndmin=2).T
-
-    # creating tensorflow time series datasets
-    train_ds_norm = create_tf_dataset(feature_train_scaled, target_train, batch_size=batch_size, seq_length=seq_length)
-    val_ds_norm = create_tf_dataset(feature_val_scaled, target_val, batch_size=batch_size, seq_length=seq_length)
-    test_ds_norm = create_tf_dataset(feature_test_scaled, target_test, batch_size=batch_size, seq_length=seq_length)
-
-    # only the first three return values are needed for training
-    return train_ds_norm, val_ds_norm, test_ds_norm, train_df, test_df, val_df
-
+stations, measurements = get_benchmark_config()
 
 train_ds, val_ds, test_ds, train_df, test_df, val_df = create_final_ds(
-    "SHA", ["SHA", "WSH","TTP", "TF2", "NF", "Kur", "KFS", "Fun", "Fin", "Cha", "Che", "Chi"
-            ], "SHA_nit", batch_size=32, seq_length=2, interval="24h")
-
-print(train_df)
+    station="SHA",
+    stations=stations,
+    target_feature="SHA_nit",
+    interval="24h",
+    batch_size=32,
+    seq_length=2
+)
