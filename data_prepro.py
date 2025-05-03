@@ -120,7 +120,7 @@ def create_tf_dataset(data, target, seq_length=3, batch_size=32):
     return ds
 
 def create_final_ds(station, stations, measurements, target_feature,
-                    interval="10min", batch_size=32, seq_length=3):
+                    batch_size, seq_length, interval="10min"):
     df = load_data(stations, measurements, interval=interval)
     df.to_pickle(f"{station}-dataframe.pkl")
     df.drop(columns=df.columns[df.columns.duplicated()], inplace=True)
@@ -134,13 +134,23 @@ def create_final_ds(station, stations, measurements, target_feature,
 
 from benchmark_szenario import get_benchmark_config
 
-stations, measurements = get_benchmark_config()
+stations, measurements, target_feature = get_benchmark_config()
 
 train_ds, val_ds, test_ds, train_df, test_df, val_df = create_final_ds(
     station="SHA",
     stations=stations,
-    target_feature="SHA_nit",
-    interval="24h",
+    target_feature=target_feature,
     batch_size=32,
-    seq_length=2
+    seq_length=2,
+    measurements=measurements
+)
+
+from lstm_model import create_model
+
+model, early_stopping = create_model(
+    nodes_lstm= 20,
+    nodes_dense= None,
+    dropout= 0.1,
+    metric= "r_square",
+    learning_rate= 0.001,
 )

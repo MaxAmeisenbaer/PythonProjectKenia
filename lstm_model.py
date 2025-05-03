@@ -27,3 +27,30 @@ def create_model(nodes_lstm, nodes_dense, dropout, metric, learning_rate):
     )
 
     return model, early_stopping
+
+
+def train_model(metric, EPOCHS):
+    history = model.fit(train_ds, epochs=EPOCHS,
+                        validation_data=val_ds)
+
+    model.save()
+
+    # list all data in history
+    print(history.history.keys())
+    # visualize history for accuracy
+    plt.plot(history.history[f'{metric}'])
+    plt.plot(history.history[f'val_{metric}'])
+    plt.title(f'model {metric}')
+    plt.ylabel(f'{metric}')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
+
+    # visualize history for loss
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()

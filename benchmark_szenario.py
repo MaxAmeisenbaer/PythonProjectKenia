@@ -13,6 +13,8 @@ def get_benchmark_config():
         "Fin": ["prec"],
         "Cha": ["prec"],
         "Chi": ["prec"]
+
     }
+    target_feature = "SHA-nit"
 
     return stations, measurements
