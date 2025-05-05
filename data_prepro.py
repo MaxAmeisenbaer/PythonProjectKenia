@@ -145,7 +145,7 @@ train_ds, val_ds, test_ds, train_df, test_df, val_df = create_final_ds(
     measurements=measurements
 )
 
-from lstm_model import create_model
+from lstm_model import create_model, train_model
 
 model, early_stopping = create_model(
     nodes_lstm= 20,
@@ -154,3 +154,4 @@ model, early_stopping = create_model(
     metric= "r_square",
     learning_rate= 0.001,
 )
+
