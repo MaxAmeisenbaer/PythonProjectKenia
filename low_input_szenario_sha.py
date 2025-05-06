@@ -4,7 +4,7 @@ def get_low_input_config():
     measurements = {
         "SHA": ["disch", "prec"],
         "WSH": ["prec"],
-        "TTP": ["prec"],
+        "TTP": ["disch", "prec"],
         "TF2": ["prec"],
         "NF": ["disch", "prec"],
         "Kur": ["prec"],
