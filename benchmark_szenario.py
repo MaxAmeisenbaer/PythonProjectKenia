@@ -17,4 +17,4 @@ def get_benchmark_config():
     }
     target_feature = "SHA-nit"
 
-    return stations, measurements
+    return stations, measurements, target_feature
