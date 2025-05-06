@@ -3,12 +3,12 @@ def get_low_input_config():
 
     measurements = {
         "SHA": ["disch", "prec"],
-        "WSH": ["prec"],
+        "WSH": ["gust","par", "rh","temp","wind","prec"],
         "TTP": ["disch", "prec"],
-        "TF2": ["prec"],
+        "TF2": ["temp","prec"],
         "NF": ["disch", "prec"],
         "Kur": ["prec"],
-        "KFS": ["prec"],
+        "KFS": ["gust", "par", "rh","temp","wind","prec"],
         "Fun": ["prec"],
         "Fin": ["prec"],
         "Cha": ["prec"],
