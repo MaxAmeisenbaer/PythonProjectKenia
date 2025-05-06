@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 class NSEMetric(tf.keras.metrics.Metric):
     def __init__(self, name="nse", **kwargs):
@@ -22,6 +22,26 @@ class NSEMetric(tf.keras.metrics.Metric):
     def reset_states(self):
         self.sse.assign(0.0)
         self.var.assign(0.0)
+        self.count.assign(0.0)
+
+class MBEMetric(tf.keras.metrics.Metric):
+    def __init__(self, name="mean_bias_error", **kwargs):
+        super(MBEMetric, self).__init__(name=name, **kwargs)
+        self.total_error = self.add_weight(name="total_error", initializer="zeros")
+        self.count = self.add_weight(name="count", initializer="zeros")
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        error = y_pred - y_true
+        if sample_weight is not None:
+            error = tf.multiply(error, sample_weight)
+        self.total_error.assign_add(tf.reduce_sum(error))
+        self.count.assign_add(tf.cast(tf.size(y_true), tf.float32))
+
+    def result(self):
+        return self.total_error / self.count
+
+    def reset_states(self):
+        self.total_error.assign(0.0)
         self.count.assign(0.0)
 
 def kling_gupta_efficiency(sim, obs):
@@ -63,6 +83,7 @@ def create_model(nodes_lstm, nodes_dense, dropout, metric, learning_rate):
                "r_square": tf.keras.metrics.R2Score(dtype=tf.float32),
                "mean_absolute_error": tf.keras.metrics.MeanAbsoluteError(),
                "nse": NSEMetric(),
+               "mbe": MBEMetric(),
                }
 
     model.compile(loss=tf.losses.MeanSquaredError(),
