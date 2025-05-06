@@ -1,6 +1,3 @@
-from data_prepro import target_feature
-
-
 def get_low_input_config():
     stations = ["SHA", "WSH", "TTP", "TF2", "NF", "Kur", "KFS", "Fun", "Fin", "Cha", "Chi"]
 
