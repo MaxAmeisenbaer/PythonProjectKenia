@@ -26,7 +26,8 @@ def create_standard_measurement_df(filename, measure, interval, directory="Data"
     df = df.resample(interval).mean()
     df = df.interpolate()
 
-    colname = f"{filename[:3]}_{measure}"
+    station = filename.split("-")[0]
+    colname = f"{station}_{measure}"
     df.rename(columns={"value": colname}, inplace=True)
 
     df.reset_index(drop=True, inplace=True)
