@@ -1,4 +1,5 @@
 def get_benchmark_config():
+    config_name = "benchmark"
     stations = ["SHA", "WSH", "TTP", "TF2", "NF", "Kur", "KFS", "Fun", "Fin", "Cha", "Chi"]
 
     measurements = {
@@ -17,4 +18,4 @@ def get_benchmark_config():
     }
     target_feature = "SHA-nit"
 
-    return stations, measurements, target_feature
+    return stations, measurements, target_feature, config_name

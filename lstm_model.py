@@ -80,8 +80,9 @@ def create_model(nodes_lstm, nodes_dense, dropout, metric, learning_rate):
     ])
 
     metrics = {"root_mean_squared_error": tf.keras.metrics.RootMeanSquaredError(),
-               "r_square": tf.keras.metrics.R2Score(dtype=tf.float32),
+               "mean_squared_error": tf.keras.metrics.MeanSquaredError(),
                "mean_absolute_error": tf.keras.metrics.MeanAbsoluteError(),
+               "r_square": tf.keras.metrics.R2Score(dtype=tf.float32),
                "nse": NSEMetric(),
                "mbe": MBEMetric(),
                }
@@ -91,17 +92,18 @@ def create_model(nodes_lstm, nodes_dense, dropout, metric, learning_rate):
                   metrics=[metrics[metric]])
 
     early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor="val_root_mean_squared_error",
-        patience=20,
+        monitor="val_mean_squared_error",
+        patience=5,
         min_delta=0.001,
+        restore_best_weights=True
     )
 
     return model, early_stopping
 
 
-def train_model(model, train_ds, val_ds, early_stopping, metric, EPOCHS):
+def train_model(model, train_ds, val_ds, early_stopping, metric, epochs):
     kge_callback = KGECallback(val_ds)
-    history = model.fit(train_ds, epochs=EPOCHS,
+    history = model.fit(train_ds, epochs=epochs,
                         validation_data=val_ds,
                         callbacks=[early_stopping, kge_callback])
 

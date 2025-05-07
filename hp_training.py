@@ -27,7 +27,7 @@ class LSTMHyperModel(kt.HyperModel):
     def fit(self, hp, model, *args, **kwargs):
         batch_size = hp.Choice("batch_size", values=[16, 32, 128])
         seq_length = hp.Choice("seq_length", values=[2, 6, 18, 432])
-        epochs = hp.Choice("epoch", values=[20, 30, 50, 70])
+        epochs = hp.Choice("epochs", values=[20, 30, 50, 70])
 
         train_ds, val_ds, test_ds, _, _, _ = create_final_ds(
             station="SHA",
@@ -86,7 +86,7 @@ _, early_stopping = create_model(
 )
 
 train_model(best_model, train_ds, val_ds, early_stopping,
-            metric="r_square", EPOCHS=best_hp["epoch"])
+            metric="r_square", epochs=best_hp["epochs"])
 
 print("Beste Hyperparameter:")
 for hp_name in best_hp.values.keys():
