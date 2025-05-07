@@ -73,7 +73,7 @@ def main():
         learning_rate=model_config["learning_rate"]
     )
 
-    history = train_model(
+    history, train_loss, val_loss = train_model(
         model=model,
         train_ds=train_ds,
         val_ds=val_ds,
@@ -81,10 +81,11 @@ def main():
         metric=model_config["metric"],
         epochs=model_config["epochs"]
     )
-    return model, test_ds, model_config, target_feature, config_name
+
+    return model, test_ds, model_config, train_loss, val_loss, target_feature, config_name
 
 if __name__ == "__main__":
-    model, test_ds, model_config, target_feature, config_name = main()
+    model, test_ds, model_config, train_loss, val_loss, target_feature, config_name = main()
 
     metrics_result = calculate_all_metrics(model, test_ds)
 
@@ -92,5 +93,10 @@ if __name__ == "__main__":
 
     save_model_metadata(
         model_name=model_name,
-        params={**model_config, **metrics_result}
+        params={
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+            **model_config,
+            **metrics_result
+        }
     )

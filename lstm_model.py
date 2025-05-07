@@ -128,3 +128,8 @@ def train_model(model, train_ds, val_ds, early_stopping, metric, epochs):
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
     plt.show()
+
+    final_train_loss = history.history["loss"][-1]
+    final_val_loss = history.history["val_loss"][-1]
+
+    return history, final_train_loss, final_val_loss
