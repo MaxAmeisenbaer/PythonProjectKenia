@@ -133,7 +133,7 @@ def create_final_ds(station, stations, measurements, target_feature,
 
     return train_ds, val_ds, test_ds, train_df, test_df, val_df
 
-from benchmark_szenario import get_benchmark_config
+from benchmark_szenario_sha import get_benchmark_config
 
 stations, measurements, target_feature = get_benchmark_config()
 

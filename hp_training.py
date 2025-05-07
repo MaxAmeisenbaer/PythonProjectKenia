@@ -2,7 +2,7 @@ import keras_tuner as kt
 import numpy as np
 from data_prepro import create_final_ds
 from lstm_model import create_model, train_model
-from benchmark_szenario import get_benchmark_config
+from benchmark_szenario_sha import get_benchmark_config
 
 stations, measurements, target_feature = get_benchmark_config()
 
