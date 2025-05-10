@@ -5,7 +5,7 @@ def get_benchmark_config():
     measurements = {
         "SHA": ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl", "prec"],
         "WSH": ["dir", "ec15", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind", "prec"],
-        "TTP": ["disch", "doc", "nit", "prec"],
+        "TTP": ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl", "prec"],
         "TF2": ["temp", "prec"],
         "NF": ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl", "prec"],
         "Kur": ["prec"],

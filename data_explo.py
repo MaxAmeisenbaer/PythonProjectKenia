@@ -45,7 +45,7 @@ def plot_one_data(filename):
 
     plt.show()
 
-#plot_one_data(filename= "SHA-nit.csv")
+plot_one_data(filename= "KFS-ec15.csv")
 
 def explore_startpoints(directory, pattern):
     """
@@ -91,42 +91,44 @@ def explore_startpoints(directory, pattern):
 # Aufruf der Funktion für alle relevanten Dateien im Verzeichnis "Data"
 #explore_startpoints(directory="Data", pattern="SMF-*.csv")
 
-# 📂 Alle CSV-Dateien im "Data"-Ordner einlesen
-csv_files = glob.glob(os.path.join("Data", "*.csv"))
+def gantt_chart():
+    csv_files = glob.glob(os.path.join("Data", "*.csv"))
+    data_list = []
 
-data_list = []
+    for file in csv_files:
+        df = pd.read_csv(file)
 
-for file in csv_files:
-    df = pd.read_csv(file)
+        # Sicherstellen, dass die "date"-Spalte als Datum erkannt wird
+        df["date"] = pd.to_datetime(df["date"])
 
-    # Sicherstellen, dass die "date"-Spalte als Datum erkannt wird
-    df["date"] = pd.to_datetime(df["date"])
+        # Start- und Endzeitpunkt für jede Datei bestimmen
+        start_date = df["date"].min()
+        end_date = df["date"].max()
 
-    # Start- und Endzeitpunkt für jede Datei bestimmen
-    start_date = df["date"].min()
-    end_date = df["date"].max()
+        # Speichern der Datei-Informationen
+        data_list.append({
+            "file_name": os.path.basename(file),
+            "start": start_date,
+            "end": end_date
+        })
 
-    # Speichern der Datei-Informationen
-    data_list.append({"file_name": os.path.basename(file), "start": start_date, "end": end_date})
+    # In DataFrame umwandeln
+    data = pd.DataFrame(data_list)
 
-# In DataFrame umwandeln
-data = pd.DataFrame(data_list)
+    # 🎨 Gantt-Chart erstellen
+    fig, ax = plt.subplots(figsize=(15, 28))
 
+    # Jede Datei als horizontale Bar hinzufügen
+    for i, row in data.iterrows():
+        ax.barh(row["file_name"], row["end"] - row["start"], left=row["start"], color="skyblue")
 
-# 🎨 Gantt-Chart erstellen
-fig, ax = plt.subplots(figsize=(15, 28))
+    # 📅 Achsen formatieren
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+    plt.xticks(rotation=45)
+    plt.xlabel("Datum")
+    plt.ylabel("CSV-Dateien")
+    plt.title("Gantt-Chart: Zeiträume der CSV-Dateien")
+    plt.grid(True)
 
-# Jede Datei als horizontale Bar hinzufügen
-for i, row in data.iterrows():
-    ax.barh(row["file_name"], row["end"] - row["start"], left=row["start"], color="skyblue")
-
-# 📅 Achsen formatieren
-ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
-plt.xticks(rotation=45)
-plt.xlabel("Datum")
-plt.ylabel("CSV-Dateien")
-plt.title("Gantt-Chart: Zeiträume der CSV-Dateien")
-plt.grid(True)
-
-# 📊 Anzeigen
-plt.show()
+    # 📊 Anzeigen
+    plt.show()
