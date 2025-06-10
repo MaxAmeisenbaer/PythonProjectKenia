@@ -135,7 +135,7 @@ def create_final_ds(station, stations, measurements, target_feature,
 
 from benchmark_szenario_sha import get_benchmark_config
 
-stations, measurements, target_feature = get_benchmark_config()
+stations, measurements, target_feature, _ = get_benchmark_config()
 
 train_ds, val_ds, test_ds, train_df, test_df, val_df = create_final_ds(
     station="SHA",
