@@ -68,7 +68,7 @@ def load_data(stations, measurements, interval="10min"):
 
     for station in stations:
         if "prec" in measurements.get(station, []):
-            prec_df = create_precipitation_df(df_time, station, interval)
+            prec_df = create_precipitation_df(df_time.index, station, interval)
             frames.append(prec_df)
 
     df = pd.concat(frames, axis=1)
