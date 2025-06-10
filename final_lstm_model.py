@@ -49,7 +49,7 @@ def main():
         "nodes_lstm": 10,
         "nodes_dense": None,
         "dropout": 0.1,
-        "metric": "mse",
+        "metric": "mean_squared_error",
         "learning_rate": 0.0001,
         "batch_size": 16,
         "seq_length": 2,
