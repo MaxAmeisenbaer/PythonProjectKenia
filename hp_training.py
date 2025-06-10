@@ -50,7 +50,7 @@ class LSTMHyperModel(kt.HyperModel):
 # Tuner initialisieren
 tuner = kt.GridSearch(
     hypermodel=LSTMHyperModel(),
-    objective=kt.Objective("val_r_square", direction="max"),
+    objective=kt.Objective("val_mean_squared_error", direction="max"),
     max_trials=20,
     executions_per_trial=1,
     directory="kt_tuner",

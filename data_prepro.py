@@ -152,7 +152,7 @@ model, early_stopping = create_model(
     nodes_lstm= 20,
     nodes_dense= None,
     dropout= 0.1,
-    metric= "r_square",
+    metric= "mean_squared_error",
     learning_rate= 0.001,
 )
 
