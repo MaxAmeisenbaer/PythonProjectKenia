@@ -66,7 +66,7 @@ def load_data(stations, measurements, interval="10min"):
         frames.append(create_standard_measurement_df(filename, measure, interval=interval))
 
     #Referenz-Zeitreihe für Zeitindex aller Niederschlagsdaten
-    _, df_time = create_standard_measurement_df("SHA-nit.csv", "nit", interval=interval)
+    df_time = create_standard_measurement_df("SHA-nit.csv", "nit", interval=interval)
 
     for station in stations:
         if "prec" in measurements.get(station, []):
