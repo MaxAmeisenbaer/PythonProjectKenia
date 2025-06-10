@@ -63,7 +63,7 @@ def load_data(stations, measurements, interval="10min"):
 
     for filename in filenames:
         measure = filename.split("-")[1].split(".")[0]
-        frames.append(create_standard_measurement_df(filename, measure, interval=interval)[0])
+        frames.append(create_standard_measurement_df(filename, measure, interval=interval))
 
     #Referenz-Zeitreihe für Zeitindex aller Niederschlagsdaten
     _, df_time = create_standard_measurement_df("SHA-nit.csv", "nit", interval=interval)
