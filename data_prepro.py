@@ -30,7 +30,6 @@ def create_standard_measurement_df(filename, measure, interval, directory="Data"
     colname = f"{station}_{measure}"
     df.rename(columns={"value": colname}, inplace=True)
 
-    df.reset_index(drop=True, inplace=True)
     return df
 
 def create_precipitation_df(reference_times, station, interval, directory="Data"):
@@ -43,7 +42,6 @@ def create_precipitation_df(reference_times, station, interval, directory="Data"
     df = df[df.index.isin(pd.to_datetime(reference_times))]
 
     df = df.resample(interval).sum()
-    df.reset_index(inplace=True)
 
     return df
 
