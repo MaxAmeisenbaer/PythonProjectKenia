@@ -46,14 +46,14 @@ def main():
     stations, measurements, target_feature, config_name = get_benchmark_config()
 
     model_config = {
-        "nodes_lstm": 20,
+        "nodes_lstm": 10,
         "nodes_dense": None,
         "dropout": 0.1,
         "metric": "mse",
-        "learning_rate": 0.001,
-        "batch_size": 32,
+        "learning_rate": 0.0001,
+        "batch_size": 16,
         "seq_length": 2,
-        "epochs": 50
+        "epochs": 70
     }
 
     train_ds, val_ds, test_ds, train_df, test_df, val_df = create_final_ds(
