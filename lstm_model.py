@@ -107,7 +107,6 @@ def train_model(model, train_ds, val_ds, early_stopping, metric, epochs):
                         validation_data=val_ds,
                         callbacks=[early_stopping, kge_callback])
 
-    model.save()
 
     # list all data in history
     print(history.history.keys())

@@ -91,6 +91,9 @@ if __name__ == "__main__":
 
     model_name = generate_model_name(config_name, target_feature)
 
+    os.makedirs("models", exist_ok=True)
+    model.save(f"models/{model_name}.keras")
+
     save_model_metadata(
         model_name=model_name,
         params={
