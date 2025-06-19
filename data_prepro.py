@@ -108,13 +108,13 @@ def make_tf_datasets(x_train, x_val, x_test, y_train, y_val, y_test, seq_length,
     ds_test = create_tf_dataset(x_test, y_test, seq_length, batch_size)
     return ds_train, ds_val, ds_test
 
-def create_tf_dataset(data, target, seq_length=3, batch_size=32):
+def create_tf_dataset(data, target, seq_length, batch_size):
     data = data[:-seq_length]
     target = target[seq_length:]
 
     ds = tf.keras.utils.timeseries_dataset_from_array(data, target, sequence_length=seq_length,
                                                       sequence_stride=1,
-                                                      batch_size=batch_size, )
+                                                      batch_size=batch_size)
 
     return ds
 
