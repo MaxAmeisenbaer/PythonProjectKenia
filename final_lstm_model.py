@@ -3,8 +3,6 @@ import re
 import pandas as pd
 from datetime import datetime
 
-
-
 from lstm_model import create_model, train_model
 from data_prepro import create_final_ds
 from benchmark_szenario_sha import get_benchmark_config
@@ -31,7 +29,6 @@ def generate_model_name(config_name, target_feature, output_path="model_log.xlsx
 
     existing_numbers = []
     if os.path.exists(output_path):
-        import pandas as pd
         df = pd.read_excel(output_path)
         pattern = rf"{re.escape(prefix)}_(\d+)"
         for name in df["model_name"]:
@@ -42,7 +39,37 @@ def generate_model_name(config_name, target_feature, output_path="model_log.xlsx
     next_number = max(existing_numbers, default=0) + 1
     return f"{prefix}_{next_number:03d}"
 
-def main():
+def prepare_data(config, target_feature, stations, measurements):
+    train_ds, val_ds, test_ds, *_ = create_final_ds(
+        station="SHA",
+        stations=stations,
+        target_feature=target_feature,
+        batch_size=config["batch_size"],
+        seq_length=config["seq_length"],
+        measurements=measurements
+    )
+    return train_ds, val_ds, test_ds
+
+def build_and_train_model(train_ds, val_ds, config):
+    model, early_stopping = create_model(
+        nodes_lstm=config["nodes_lstm"],
+        nodes_dense=config["nodes_dense"],
+        dropout=config["dropout"],
+        metric=config["metric"],
+        learning_rate=config["learning_rate"]
+    )
+
+    history, train_loss, val_loss = train_model(
+        model=model,
+        train_ds=train_ds,
+        val_ds=val_ds,
+        early_stopping=early_stopping,
+        metric=config["metric"],
+        epochs=config["epochs"]
+    )
+    return model, train_loss, val_loss
+
+def run():
     stations, measurements, target_feature, config_name = get_benchmark_config()
 
     model_config = {
@@ -56,39 +83,10 @@ def main():
         "epochs": 70
     }
 
-    train_ds, val_ds, test_ds, train_df, test_df, val_df = create_final_ds(
-        station="SHA",
-        stations=stations,
-        target_feature=target_feature,
-        batch_size=model_config["batch_size"],
-        seq_length=model_config["seq_length"],
-        measurements=measurements
-    )
-
-    model, early_stopping = create_model(
-        nodes_lstm=model_config["nodes_lstm"],
-        nodes_dense=model_config["nodes_dense"],
-        dropout=model_config["dropout"],
-        metric=model_config["metric"],
-        learning_rate=model_config["learning_rate"]
-    )
-
-    history, train_loss, val_loss = train_model(
-        model=model,
-        train_ds=train_ds,
-        val_ds=val_ds,
-        early_stopping=early_stopping,
-        metric=model_config["metric"],
-        epochs=model_config["epochs"]
-    )
-
-    return model, test_ds, model_config, train_loss, val_loss, target_feature, config_name
-
-if __name__ == "__main__":
-    model, test_ds, model_config, train_loss, val_loss, target_feature, config_name = main()
+    train_ds, val_ds, test_ds = prepare_data(model_config, target_feature, stations, measurements)
+    model, train_loss, val_loss = build_and_train_model(train_ds, val_ds, model_config)
 
     metrics_result = calculate_all_metrics(model, test_ds)
-
     model_name = generate_model_name(config_name, target_feature)
 
     os.makedirs("models", exist_ok=True)
@@ -103,3 +101,13 @@ if __name__ == "__main__":
             **metrics_result
         }
     )
+
+    return {
+        "model_name": model_name,
+        "metrics": metrics_result,
+        "train_loss": train_loss,
+        "val_loss": val_loss
+    }
+
+if __name__ == "__main__":
+    run()
