@@ -8,16 +8,18 @@ from sklearn.preprocessing import MinMaxScaler
 
 def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
     start_date = "2015-04-28 11:00:00"
+    end_date = "2019-11-21 12:00:00"
 
     df = pd.read_csv(filepath)
 
     df = df[df["date"].str.endswith(valid_time_suffix)] if valid_time_suffix else df
 
     df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d %H:%M:%S")
-    df = df[df["date"] >= pd.to_datetime(start_date)]
+    df = df[(df["date"] >= pd.to_datetime(start_date)) & (df["date"] <= pd.to_datetime(end_date))]
 
     df.set_index("date", inplace=True)
     return df
+
 
 def create_standard_measurement_df(filename, measure, interval, directory="Data"):
     filepath = os.path.join(directory, filename)
