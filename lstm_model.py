@@ -70,14 +70,15 @@ class KGECallback(tf.keras.callbacks.Callback):
         print(f"Epoch {epoch + 1}: KGE = {kge:.4f}")
 
 def create_model(nodes_lstm, nodes_dense, dropout, metric, learning_rate):
-    model = tf.keras.models.Sequential([
-        tf.keras.layers.LSTM(nodes_lstm, return_sequences=True),
-        tf.keras.layers.Dropout(dropout),
+    model = tf.keras.models.Sequential()
+    model.add(tf.keras.layers.LSTM(nodes_lstm, return_sequences=True))
+    model.add(tf.keras.layers.Dropout(dropout))
+    model.add(tf.keras.layers.GlobalMaxPooling1D())
 
-        tf.keras.layers.GlobalMaxPooling1D(),
+    if nodes_dense > 0:
+        model.add(tf.keras.layers.Dense(nodes_dense, activation="relu"))
 
-        tf.keras.layers.Dense(1, activation="linear")
-    ])
+    model.add(tf.keras.layers.Dense(1, activation="linear"))
 
     metrics = {"root_mean_squared_error": tf.keras.metrics.RootMeanSquaredError(),
                "mean_squared_error": tf.keras.metrics.MeanSquaredError(),

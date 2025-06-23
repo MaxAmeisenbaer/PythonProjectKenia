@@ -73,13 +73,13 @@ def run():
     stations, measurements, target_feature, config_name = get_benchmark_config()
 
     model_config = {
-        "nodes_lstm": 10,
-        "nodes_dense": None,
+        "nodes_lstm": 100,
+        "nodes_dense": 64,
         "dropout": 0.1,
         "metric": "mean_squared_error",
         "learning_rate": 0.0001,
         "batch_size": 16,
-        "seq_length": 2,
+        "seq_length": 18,
         "epochs": 70
     }
 
