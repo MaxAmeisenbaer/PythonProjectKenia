@@ -132,27 +132,3 @@ def create_final_ds(station, stations, measurements, target_feature,
     train_ds, val_ds, test_ds = make_tf_datasets(x_train, x_val, x_test, y_train, y_val, y_test, seq_length, batch_size)
 
     return train_ds, val_ds, test_ds, train_df, test_df, val_df
-
-from benchmark_szenario_sha import get_benchmark_config
-
-stations, measurements, target_feature, _ = get_benchmark_config()
-
-train_ds, val_ds, test_ds, train_df, test_df, val_df = create_final_ds(
-    station="SHA",
-    stations=stations,
-    target_feature=target_feature,
-    batch_size=16,
-    seq_length=2,
-    measurements=measurements
-)
-
-from lstm_model import create_model, train_model
-
-model, early_stopping = create_model(
-    nodes_lstm= 10,
-    nodes_dense= None,
-    dropout= 0.1,
-    metric= "mean_squared_error",
-    learning_rate= 0.0001,
-)
-
