@@ -95,7 +95,7 @@ def create_model(nodes_lstm, nodes_dense, dropout, metric, learning_rate):
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor="val_mean_squared_error",
         patience=5,
-        min_delta=0.001,
+        min_delta=0.0,
         restore_best_weights=True
     )
 
