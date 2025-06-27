@@ -7,6 +7,7 @@ from lstm_model import create_model, train_model
 from data_prepro import create_final_ds
 from benchmark_szenario_sha import get_benchmark_config
 from low_input_szenario_sha import get_low_input_config
+from not_nit_szenario_sha import get_not_nit_config
 from evaluate_model import calculate_all_metrics
 
 def save_model_metadata(model_name, params, output_path="model_log.xlsx"):
@@ -75,6 +76,8 @@ def run(scenario):
         stations, measurements, target_feature, config_name = get_benchmark_config()
     elif scenario == "low_input":
         stations, measurements, target_feature, config_name = get_low_input_config()
+    elif scenario == "not_nit":
+        stations, measurements, target_feature, config_name = get_not_nit_config()
     else:
         raise ValueError(f"Unbekanntes Szenario: {scenario}")
 
