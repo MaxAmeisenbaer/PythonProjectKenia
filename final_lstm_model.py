@@ -116,4 +116,4 @@ def run(scenario):
     }
 
 if __name__ == "__main__":
-    run()
+    run(scenario= "low_input")
