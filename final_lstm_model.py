@@ -6,6 +6,7 @@ from datetime import datetime
 from lstm_model import create_model, train_model
 from data_prepro import create_final_ds
 from benchmark_szenario_sha import get_benchmark_config
+from low_input_szenario_sha import get_low_input_config
 from evaluate_model import calculate_all_metrics
 
 def save_model_metadata(model_name, params, output_path="model_log.xlsx"):
@@ -69,8 +70,13 @@ def build_and_train_model(train_ds, val_ds, config):
     )
     return model, train_loss, val_loss
 
-def run():
-    stations, measurements, target_feature, config_name = get_benchmark_config()
+def run(scenario):
+    if scenario == "benchmark":
+        stations, measurements, target_feature, config_name = get_benchmark_config()
+    elif scenario == "low_input":
+        stations, measurements, target_feature, config_name = get_low_input_config()
+    else:
+        raise ValueError(f"Unbekanntes Szenario: {scenario}")
 
     model_config = {
         "nodes_lstm": 100,
