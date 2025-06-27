@@ -109,25 +109,8 @@ def train_model(model, train_ds, val_ds, early_stopping, metric, epochs):
                         callbacks=[early_stopping, kge_callback])
 
 
-    # list all data in history
-    print(history.history.keys())
-    # visualize history for accuracy
-    plt.plot(history.history[f'{metric}'])
-    plt.plot(history.history[f'val_{metric}'])
-    plt.title(f'model {metric}')
-    plt.ylabel(f'{metric}')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.show()
 
-    # visualize history for loss
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.title('model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.show()
+    print(history.history.keys())
 
     final_train_loss = history.history["loss"][-1]
     final_val_loss = history.history["val_loss"][-1]
