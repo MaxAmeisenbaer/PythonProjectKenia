@@ -3,7 +3,7 @@ def get_low_input_config():
     stations = ["SHA", "WSH", "TTP", "TF2", "NF", "Kur", "KFS", "Fun", "Fin", "Cha", "Chi"]
 
     measurements = {
-        "SHA": ["disch", "prec"],
+        "SHA": ["disch", "prec", "nit"],
         "WSH": ["gust","par", "rh","temp","wind","prec"],
         "TTP": ["disch", "prec"],
         "TF2": ["temp","prec"],
