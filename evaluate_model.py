@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 
 
-def evaluate_model(model, test_ds):
+def calculate_all_metrics(model, test_ds):
     """
     Bewertet ein trainiertes Modell auf einem Test-Datensatz und berechnet verschiedene Regressionsmetriken.
 
