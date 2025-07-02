@@ -96,7 +96,7 @@ def plot_predictions_with_timestamps(model_folder, output_folder, timestamps_tra
     plt.close()
 
 
-def plot_all_models(models_directory, output_directory, timestamps_train, timestamps_val, timestamps_test):
+def plot_all_timeline(models_directory, output_directory, timestamps_train, timestamps_val, timestamps_test):
     """
     Erstellt Zeitreihenplots für alle Modelle im gegebenen Verzeichnis.
 
@@ -112,22 +112,65 @@ def plot_all_models(models_directory, output_directory, timestamps_train, timest
             plot_predictions_with_timestamps(model_path, output_directory, timestamps_train, timestamps_val, timestamps_test)
 
 
-def main():
+def plot_scatter(model_folder, output_folder):
     """
-    Hauptfunktion zum Generieren der Zeitreihenplots für alle gespeicherten Modelle.
-    """
-    models_directory = "models"
-    output_directory = "results/zeitreihe"
+    Erstellt einen Scatter-Plot der beobachteten vs. vorhergesagten Nitratwerte
+    für ein gegebenes Modell.
 
-    # Zeitstempel aus SHA-nit.csv extrahieren
+    :param model_folder: Pfad zum Ordner mit dem Modell und den gespeicherten Vorhersagen/Zielwerten
+    :param output_folder: Zielordner zum Speichern des Scatter-Plots
+    """
+    model_name, pred_train, pred_val, pred_test, y_train, y_val, y_test = load_model_and_predictions(model_folder)
+
+    y_all = np.concatenate([y_train, y_val, y_test])
+    pred_all = np.concatenate([pred_train, pred_val, pred_test])
+
+    plt.figure(figsize=(6, 6))
+    plt.scatter(y_all, pred_all, color="dodgerblue", edgecolor='k', alpha=0.75)
+    plt.plot([y_all.min(), y_all.max()], [y_all.min(), y_all.max()], 'k--', lw=2)
+
+    plt.xlabel("Observed (mg/l)", fontsize=12)
+    plt.ylabel("Predicted (mg/l)", fontsize=12)
+    plt.title(f"Nitrate for station {model_name}", fontsize=14)
+    plt.grid(True)
+    plt.axis("equal")
+    plt.tight_layout()
+
+    os.makedirs(output_folder, exist_ok=True)
+    output_path = os.path.join(output_folder, f"{model_name}_scatter.png")
+    plt.savefig(output_path)
+    plt.close()
+
+
+def plot_all_scatter(models_directory, output_directory):
+    """
+    Erstellt Scatterplots für alle Modelle im gegebenen Verzeichnis.
+
+    :param models_directory: Ordner mit den Modellunterordnern
+    :param output_directory: Zielordner für die Scatterplots
+    """
+    for model_folder in os.listdir(models_directory):
+        model_path = os.path.join(models_directory, model_folder)
+        if os.path.isdir(model_path):
+            plot_scatter(model_path, output_directory)
+
+
+def main():
+    models_directory = "models"
+    output_zeitreihe = "results/zeitreihe"
+    output_scatter = "results/scatter"
+
     timestamps_train, timestamps_val, timestamps_test = get_timestamps_from_target_csv(
         filepath="Data/SHA-nit.csv",
         interval="10min",
         seq_length=18
     )
 
-    # Plots für alle Modelle erstellen
-    plot_all_models(models_directory, output_directory, timestamps_train, timestamps_val, timestamps_test)
+    # Zeitreihenplots
+    plot_all_timeline(models_directory, output_zeitreihe, timestamps_train, timestamps_val, timestamps_test)
+
+    # Scatterplots
+    plot_all_scatter(models_directory, output_scatter)
 
 
 if __name__ == "__main__":
