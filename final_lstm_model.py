@@ -80,8 +80,8 @@ def run(scenario):
         stations, measurements, target_feature, config_name = get_low_input_config()
     elif scenario == "not_nit":
         stations, measurements, target_feature, config_name = get_not_nit_config()
-    elif scenario == "not_spectro":
-        stations, measurements, target_feature, config_name = get_not_spectro_config()
+    elif scenario == "not_lyser":
+        stations, measurements, target_feature, config_name = get_not_lyser_config()
     else:
         raise ValueError(f"Unbekanntes Szenario: {scenario}")
 
@@ -123,4 +123,4 @@ def run(scenario):
     }
 
 if __name__ == "__main__":
-    run(scenario= "not_spectro")
+    run(scenario= "not_lyser")

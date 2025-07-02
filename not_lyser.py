@@ -1,4 +1,4 @@
-def get_not_spectro_config():
+def get_not_lyser_config():
     config_name = "benchmark"
     stations = ["SHA", "WSH", "TTP", "TF2", "NF", "Kur", "KFS", "Fun", "Fin", "Cha", "Chi"]
 
