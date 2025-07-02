@@ -1,5 +1,5 @@
 def get_not_lyser_config():
-    config_name = "benchmark"
+    config_name = "not_lyser"
     stations = ["SHA", "WSH", "TTP", "TF2", "NF", "Kur", "KFS", "Fun", "Fin", "Cha", "Chi"]
 
     measurements = {
