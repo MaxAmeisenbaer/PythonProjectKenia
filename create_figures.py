@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from tensorflow import keras
 
 
-def get_timestamps_from_target_csv(filepath="Data/SHA-nit.csv", interval="10min", seq_length=18):
+def get_timestamps_from_target_csv(filepath="Data/SHA-nit.csv", interval="10min", valid_time_suffix="0:00", seq_length = 18):
     """
     Extrahiert Zeitstempel aus der CSV-Datei der Zielgröße (z. B. Nitrat) zur späteren Verwendung in Zeitreihenplots.
 
@@ -21,15 +21,16 @@ def get_timestamps_from_target_csv(filepath="Data/SHA-nit.csv", interval="10min"
     end_date = "2019-11-21 12:00:00"
 
     df = pd.read_csv(filepath)
-    df["date"] = pd.to_datetime(df["date"])
-    df = df[df["date"].dt.strftime("%H:%M:%S") == "00:00:00"]
-    df = df[(df["date"] >= start_date) & (df["date"] <= end_date)]
+    df = df[df["date"].str.endswith(valid_time_suffix)] if valid_time_suffix else df
+
+    df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d %H:%M:%S")
+    df = df[(df["date"] >= pd.to_datetime(start_date)) & (df["date"] <= pd.to_datetime(end_date))]
     df.set_index("date", inplace=True)
 
     df = df.resample(interval).mean()
     df = df.interpolate()
 
-    timestamps = df.index[seq_length:]
+    timestamps = df.index
 
     n = len(timestamps)
     train_end = int(n * 0.6)
@@ -38,6 +39,10 @@ def get_timestamps_from_target_csv(filepath="Data/SHA-nit.csv", interval="10min"
     timestamps_train = timestamps[:train_end]
     timestamps_val = timestamps[train_end:val_end]
     timestamps_test = timestamps[val_end:]
+
+    timestamps_train = timestamps_train[seq_length:]
+    timestamps_val = timestamps_val[seq_length:]
+    timestamps_test = timestamps_test[seq_length:]
 
     return timestamps_train, timestamps_val, timestamps_test
 
@@ -180,7 +185,6 @@ def main():
     timestamps_train, timestamps_val, timestamps_test = get_timestamps_from_target_csv(
         filepath="Data/SHA-nit.csv",
         interval="10min",
-        seq_length=18
     )
 
     plot_all_models(

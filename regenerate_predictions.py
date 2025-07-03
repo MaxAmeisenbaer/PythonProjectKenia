@@ -43,20 +43,20 @@ def recreate_predictions_for_folder(model_root, model_folder):
         batch_size, seq_length
     )
 
-    y_train = np.array(train_df[target_feature], ndmin=2).T
-    y_val = np.array(val_df[target_feature], ndmin=2).T
-    y_test = np.array(test_df[target_feature], ndmin=2).T
+    y_train = train_df[target_feature].values
+    y_val = val_df[target_feature].values
+    y_test = test_df[target_feature].values
 
     x_train, x_val, x_test, _ = scale_features(train_df, val_df, test_df, target_feature)
 
-    def to_sequences(x, y):
+    def to_sequences(x, y, seq_length):
         x_seq = np.array([x[i:i + seq_length] for i in range(len(x) - seq_length)])
-        y_seq = y[seq_length:]
+        y_seq = y[seq_length:len(x)]
         return x_seq, y_seq
 
-    x_train_seq, y_train_seq = to_sequences(x_train, y_train)
-    x_val_seq, y_val_seq = to_sequences(x_val, y_val)
-    x_test_seq, y_test_seq = to_sequences(x_test, y_test)
+    x_train_seq, y_train_seq = to_sequences(x_train, y_train, seq_length)
+    x_val_seq, y_val_seq = to_sequences(x_val, y_val, seq_length)
+    x_test_seq, y_test_seq = to_sequences(x_test, y_test, seq_length)
 
     # Modell laden
     model = tf.keras.models.load_model(model_file_path, compile=False)
