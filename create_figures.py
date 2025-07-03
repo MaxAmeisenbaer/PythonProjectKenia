@@ -7,14 +7,15 @@ from tensorflow import keras
 
 def get_timestamps_from_target_csv(filepath="Data/SHA-nit.csv", interval="10min", seq_length=18):
     """
-    Extrahiert Zeitstempel aus der Originaldatei mit der Zielvariable (z.B. Nitrat).
-    Die Daten werden resampled, interpoliert und dann um die Sequenzlänge reduziert,
-    um zu den Modellvorhersagen zu passen.
+    Extrahiert Zeitstempel aus der CSV-Datei der Zielgröße (z. B. Nitrat) zur späteren Verwendung in Zeitreihenplots.
 
-    :param filepath: Pfad zur CSV-Datei mit der Zielgröße
-    :param interval: Resamplingintervall, z.B. '10min'
-    :param seq_length: Anzahl an Zeitschritten pro Sequenz im LSTM-Modell
-    :return: Drei Pandas Index-Objekte: timestamps_train, timestamps_val, timestamps_test
+    Die Funktion führt Resampling, Interpolation und Kürzung der Zeitreihe durch,
+    um die Zeitachsen mit den Vorhersagen des LSTM-Modells abzugleichen.
+
+    :param filepath: Pfad zur CSV-Datei mit der Zielgröße.
+    :param interval: Zeitintervall für Resampling, z. B. '10min'.
+    :param seq_length: Länge der Sequenz, die beim Modelltraining verwendet wurde.
+    :return: Zeitstempel für Training, Validierung und Test (drei Pandas Index-Objekte).
     """
     start_date = "2015-04-28 11:00:00"
     end_date = "2019-11-21 12:00:00"
@@ -41,15 +42,15 @@ def get_timestamps_from_target_csv(filepath="Data/SHA-nit.csv", interval="10min"
     return timestamps_train, timestamps_val, timestamps_test
 
 
-def load_model_and_predictions(model_folder):
+def load_model_and_predictions(model_folder, keras_file):
     """
-    Lädt das Modell und die gespeicherten Vorhersagen/Zielwerte aus einem gegebenen Modellordner.
+    Lädt ein Keras-Modell und zugehörige Vorhersagen und Zielwerte aus einem Modellordner.
 
-    :param model_folder: Pfad zum Ordner, der das Modell und die .npy-Dateien enthält
-    :return: Modellname, predictions_train/val/test, y_train/val/test
+    :param model_folder: Pfad zum Modellunterordner.
+    :return: Modellname, Vorhersagen (train/val/test) und Zielwerte (train/val/test).
     """
     model_name = os.path.basename(model_folder)
-    model = keras.models.load_model(os.path.join(model_folder, "model.keras"), compile=False)
+    model = keras.models.load_model(os.path.join(model_folder, keras_file), compile=False)
 
     predictions_train = np.load(os.path.join(model_folder, "predictions_train.npy"))
     predictions_val = np.load(os.path.join(model_folder, "predictions_val.npy"))
@@ -62,20 +63,19 @@ def load_model_and_predictions(model_folder):
     return model_name, predictions_train, predictions_val, predictions_test, y_train, y_val, y_test
 
 
-def plot_predictions_with_timestamps(model_folder, output_folder, timestamps_train, timestamps_val, timestamps_test):
+def plot_predictions_with_timestamps(model_folder, keras_file, output_folder, timestamps_train, timestamps_val, timestamps_test):
     """
-    Erstellt einen Zeitreihenplot für ein gegebenes Modell mit Vorhersage- und Messwerten
-    in den drei Bereichen: Training, Validierung und Test.
+    Erstellt einen Zeitreihenplot mit Vorhersagen und Messwerten eines Modells.
 
-    :param model_folder: Pfad zum Ordner mit dem Modell und den gespeicherten Vorhersagen/Zielen
-    :param output_folder: Zielordner zum Speichern des Plots
-    :param timestamps_train: Zeitstempel der Trainingsdaten (Index oder Liste)
-    :param timestamps_val: Zeitstempel der Validierungsdaten (Index oder Liste)
-    :param timestamps_test: Zeitstempel der Testdaten (Index oder Liste)
+    :param model_folder: Pfad zum Modellordner mit Vorhersagen.
+    :param output_folder: Zielordner für das Plotbild.
+    :param timestamps_train: Zeitstempel der Trainingsdaten.
+    :param timestamps_val: Zeitstempel der Validierungsdaten.
+    :param timestamps_test: Zeitstempel der Testdaten.
     """
-    model_name, predictions_train, predictions_val, predictions_test, y_train, y_val, y_test = load_model_and_predictions(model_folder)
+    model_name, pred_train, pred_val, pred_test, y_train, y_val, y_test = load_model_and_predictions(model_folder, keras_file)
 
-    predictions = np.concatenate([predictions_train, predictions_val, predictions_test])
+    predictions = np.concatenate([pred_train, pred_val, pred_test])
     targets = np.concatenate([y_train, y_val, y_test])
     timestamps = np.concatenate([timestamps_train, timestamps_val, timestamps_test])
 
@@ -96,31 +96,14 @@ def plot_predictions_with_timestamps(model_folder, output_folder, timestamps_tra
     plt.close()
 
 
-def plot_all_timeline(models_directory, output_directory, timestamps_train, timestamps_val, timestamps_test):
+def plot_scatter(model_folder, output_folder, keras_file):
     """
-    Erstellt Zeitreihenplots für alle Modelle im gegebenen Verzeichnis.
+    Erstellt einen Scatter-Plot: beobachtet vs. vorhergesagt.
 
-    :param models_directory: Ordner mit den Modellunterordnern
-    :param output_directory: Ordner für die Ausgabeplots
-    :param timestamps_train: Zeitstempel für Trainingsdaten
-    :param timestamps_val: Zeitstempel für Validierungsdaten
-    :param timestamps_test: Zeitstempel für Testdaten
+    :param model_folder: Pfad zum Modellordner.
+    :param output_folder: Zielordner für die Scatter-Grafik.
     """
-    for model_folder in os.listdir(models_directory):
-        model_path = os.path.join(models_directory, model_folder)
-        if os.path.isdir(model_path):
-            plot_predictions_with_timestamps(model_path, output_directory, timestamps_train, timestamps_val, timestamps_test)
-
-
-def plot_scatter(model_folder, output_folder):
-    """
-    Erstellt einen Scatter-Plot der beobachteten vs. vorhergesagten Nitratwerte
-    für ein gegebenes Modell.
-
-    :param model_folder: Pfad zum Ordner mit dem Modell und den gespeicherten Vorhersagen/Zielwerten
-    :param output_folder: Zielordner zum Speichern des Scatter-Plots
-    """
-    model_name, pred_train, pred_val, pred_test, y_train, y_val, y_test = load_model_and_predictions(model_folder)
+    model_name, pred_train, pred_val, pred_test, y_train, y_val, y_test = load_model_and_predictions(model_folder, keras_file)
 
     y_all = np.concatenate([y_train, y_val, y_test])
     pred_all = np.concatenate([pred_train, pred_val, pred_test])
@@ -142,23 +125,57 @@ def plot_scatter(model_folder, output_folder):
     plt.close()
 
 
-def plot_all_scatter(models_directory, output_directory):
+def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir, timestamps_train,
+                    timestamps_val, timestamps_test):
     """
-    Erstellt Scatterplots für alle Modelle im gegebenen Verzeichnis.
+    Erstellt für alle Szenarien alle Zeitreihen- und Scatterplots.
 
-    :param models_directory: Ordner mit den Modellunterordnern
-    :param output_directory: Zielordner für die Scatterplots
+    :param szenarien: Liste der Modellunterordner (z.B. ['benchmark', 'low_input']).
+    :param base_model_dir: Basisverzeichnis, das alle Szenarienordner enthält.
+    :param output_zeitreihe_dir: Zielordner für Zeitreihenplots.
+    :param output_scatter_dir: Zielordner für Scatterplots.
+    :param timestamps_train: Zeitstempel Training.
+    :param timestamps_val: Zeitstempel Validierung.
+    :param timestamps_test: Zeitstempel Test.
     """
-    for model_folder in os.listdir(models_directory):
-        model_path = os.path.join(models_directory, model_folder)
-        if os.path.isdir(model_path):
-            plot_scatter(model_path, output_directory)
+    for szenario in szenarien:
+        model_path = os.path.join(base_model_dir, szenario)
+        if szenario == "benchmark":
+            keras_file = "LSTM_SHA_benchmark_nit_001.keras"
+            plot_predictions_with_timestamps(model_path, keras_file, output_zeitreihe_dir, timestamps_train,
+                                             timestamps_val,
+                                             timestamps_test)
+            plot_scatter(model_path, output_scatter_dir, keras_file)
+        elif szenario == "low_input":
+            keras_file = "LSTM_SHA_low_input_nit_001.keras"
+            plot_predictions_with_timestamps(model_path, keras_file, output_zeitreihe_dir, timestamps_train,
+                                             timestamps_val,
+                                             timestamps_test)
+            plot_scatter(model_path, output_scatter_dir, keras_file)
+        elif szenario == "not_lyser":
+            keras_file = "LSTM_SHA_not_lyser_nit_001.keras"
+            plot_predictions_with_timestamps(model_path, keras_file, output_zeitreihe_dir, timestamps_train,
+                                             timestamps_val,
+                                             timestamps_test)
+            plot_scatter(model_path, output_scatter_dir, keras_file)
+        elif szenario == "not_nit":
+            keras_file = "LSTM_SHA_not_nit_nit_001.keras"
+            plot_predictions_with_timestamps(model_path, keras_file, output_zeitreihe_dir, timestamps_train,
+                                             timestamps_val,
+                                             timestamps_test)
+            plot_scatter(model_path, output_scatter_dir, keras_file)
+        else:
+            raise ValueError(f"Unbekannter Modellordner: {szenario}")
 
 
 def main():
-    models_directory = "models"
-    output_zeitreihe = "results/zeitreihe"
-    output_scatter = "results/scatter"
+    """
+    Hauptfunktion: Lädt Zeitstempel und erstellt alle Plots für definierte Szenarien.
+    """
+    szenarien = ["benchmark", "low_input", "not_lyser", "not_nit"]
+    base_model_dir = "models"
+    output_zeitreihe_dir = "figures/zeitreihe"
+    output_scatter_dir = "figures/scatter"
 
     timestamps_train, timestamps_val, timestamps_test = get_timestamps_from_target_csv(
         filepath="Data/SHA-nit.csv",
@@ -166,11 +183,15 @@ def main():
         seq_length=18
     )
 
-    # Zeitreihenplots
-    plot_all_timeline(models_directory, output_zeitreihe, timestamps_train, timestamps_val, timestamps_test)
-
-    # Scatterplots
-    plot_all_scatter(models_directory, output_scatter)
+    plot_all_models(
+        szenarien,
+        base_model_dir,
+        output_zeitreihe_dir,
+        output_scatter_dir,
+        timestamps_train,
+        timestamps_val,
+        timestamps_test
+    )
 
 
 if __name__ == "__main__":
