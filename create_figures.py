@@ -5,23 +5,25 @@ import matplotlib.pyplot as plt
 from tensorflow import keras
 
 
-def get_timestamps_from_target_csv(filepath="Data/SHA-nit.csv", interval="10min", valid_time_suffix="0:00", seq_length = 18):
+def get_timestamps_from_target_csv(y_train, y_val, y_test, filepath="Data/SHA-nit.csv", interval="10min", valid_time_suffix="0:00", seq_length=18):
     """
-    Extrahiert Zeitstempel aus der CSV-Datei der Zielgröße (z. B. Nitrat) zur späteren Verwendung in Zeitreihenplots.
+    Erzeugt Zeitstempel, die exakt zur Länge von y_train, y_val, y_test passen.
 
-    Die Funktion führt Resampling, Interpolation und Kürzung der Zeitreihe durch,
-    um die Zeitachsen mit den Vorhersagen des LSTM-Modells abzugleichen.
-
+    :param y_train: Array der Trainings-Zielwerte (z. B. aus np.load).
+    :param y_val: Array der Validierungs-Zielwerte.
+    :param y_test: Array der Test-Zielwerte.
     :param filepath: Pfad zur CSV-Datei mit der Zielgröße.
-    :param interval: Zeitintervall für Resampling, z. B. '10min'.
-    :param seq_length: Länge der Sequenz, die beim Modelltraining verwendet wurde.
-    :return: Zeitstempel für Training, Validierung und Test (drei Pandas Index-Objekte).
+    :param interval: Zeitintervall für Resampling (Standard: "10min").
+    :param valid_time_suffix: Optionaler Zeitfilter, um z. B. nur Messwerte mit Uhrzeit „0:00“ zu behalten.
+    :param seq_length: Sequenzlänge, wird standardmäßig abgezogen.
+    :return: timestamps_train, timestamps_val, timestamps_test (pandas Index-Objekte)
     """
     start_date = "2015-04-28 11:00:00"
     end_date = "2019-11-21 12:00:00"
 
     df = pd.read_csv(filepath)
-    df = df[df["date"].str.endswith(valid_time_suffix)] if valid_time_suffix else df
+    if valid_time_suffix:
+        df = df[df["date"].str.endswith(valid_time_suffix)]
 
     df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d %H:%M:%S")
     df = df[(df["date"] >= pd.to_datetime(start_date)) & (df["date"] <= pd.to_datetime(end_date))]
@@ -36,15 +38,12 @@ def get_timestamps_from_target_csv(filepath="Data/SHA-nit.csv", interval="10min"
     train_end = int(n * 0.6)
     val_end = train_end + int(n * 0.2)
 
-    timestamps_train = timestamps[:train_end]
-    timestamps_val = timestamps[train_end:val_end]
-    timestamps_test = timestamps[val_end:]
-
-    timestamps_train = timestamps_train[seq_length:]
-    timestamps_val = timestamps_val[seq_length:]
-    timestamps_test = timestamps_test[seq_length:]
+    timestamps_train = timestamps[:train_end][seq_length:seq_length + len(y_train)]
+    timestamps_val = timestamps[train_end:val_end][seq_length:seq_length + len(y_val)]
+    timestamps_test = timestamps[val_end:][seq_length:seq_length + len(y_test)]
 
     return timestamps_train, timestamps_val, timestamps_test
+
 
 
 def load_model_and_predictions(model_folder, keras_file):
@@ -182,10 +181,19 @@ def main():
     output_zeitreihe_dir = "figures/zeitreihe"
     output_scatter_dir = "figures/scatter"
 
+    benchmark_folder = os.path.join(base_model_dir, "benchmark")
+    y_train = np.load(os.path.join(benchmark_folder, "y_train.npy"))
+    y_val = np.load(os.path.join(benchmark_folder, "y_val.npy"))
+    y_test = np.load(os.path.join(benchmark_folder, "y_test.npy"))
+
     timestamps_train, timestamps_val, timestamps_test = get_timestamps_from_target_csv(
+        y_train=y_train,
+        y_val=y_val,
+        y_test=y_test,
         filepath="Data/SHA-nit.csv",
         interval="10min",
     )
+
 
     plot_all_models(
         szenarien,
