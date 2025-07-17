@@ -31,7 +31,7 @@ def get_config_for_model(model_folder):
     else:
         raise ValueError(f"Unbekannter Modellordner: {model_folder}")
 
-def load_val_data_from_config(model_folder, seq_length=18):
+def load_val_data_from_config(model_folder):
     """
     Lädt val_df, y_val, x_val aus der Konfiguration, wie im Training.
     """
@@ -44,73 +44,38 @@ def load_val_data_from_config(model_folder, seq_length=18):
     y_train, y_val, y_test = prepare_targets(train_df, val_df, test_df, target_feature)
     x_train, x_val, x_test, _ = scale_features(train_df, val_df, test_df, target_feature)
 
+    print(val_df.describe())
     return x_val, y_val, val_df
 
 
-def plot_val_period(x_val, y_val, val_df, start="2018-09-01", end="2018-12-31", seq_length=18):
+def plot_val_period_simplified(df, start="2018-09-01", end="2018-12-31"):
     """
-    Visualisiert Zielwerte, Feature-Mittelwerte und Heatmap für den gegebenen Zeitraum.
+    Plot für alle skalierten Nicht-Target-Features im gewünschten Zeitraum.
     """
-    val_df = val_df.copy()
-    val_df["time"] = pd.to_datetime(val_df.index)
+    df = df.copy()
+    df["time"] = pd.to_datetime(df.index)
 
-    # Rekonstruktion der Zeitachse passend zu x_val/y_val
-    time_val = val_df["time"].iloc[seq_length - 1: seq_length - 1 + len(y_val)].reset_index(drop=True)
-    y_val = y_val.squeeze()[:len(time_val)]
+    # Zeitraum einschränken
+    df = df[(df["time"] >= start) & (df["time"] <= end)]
 
-    assert len(time_val) == len(y_val) == x_val.shape[0], "Datenlängen stimmen nicht überein."
+    # Alle Spalten außer "time" plotten
+    feature_cols = df.columns.difference(["time"])
+    plt.figure(figsize=(14, 6))
+    for col in feature_cols:
+        plt.plot(df["time"], df[col], label=col, alpha=0.7)
 
-    # Maske basierend auf time_val erzeugen
-    mask = (time_val >= pd.to_datetime(start)) & (time_val <= pd.to_datetime(end))
-
-    x_seq = x_val[mask]
-    y_seq = y_val[mask]
-    time_seq = time_val[mask]
-
-    # Plot 1: y_val über Zeit
-    plt.figure(figsize=(12, 4))
-    plt.plot(time_seq, y_seq, label="y_val", color="tab:red")
-    plt.title("Zielwert (y_val) im Validierungszeitraum")
-    plt.xlabel("Datum")
-    plt.ylabel("Skalierter Zielwert")
+    plt.title(f"Skalierte Features ({start} bis {end})")
+    plt.xlabel("Zeit")
+    plt.ylabel("Skalierter Wert")
+    plt.legend(loc="upper right", ncol=3, fontsize="small")
     plt.grid(True)
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.legend()
     plt.show()
-
-    # Plot 2: Feature-Mittelwert pro Sequenz
-    feature_means = x_seq.mean(axis=2).mean(axis=1)
-    plt.figure(figsize=(12, 4))
-    plt.plot(time_seq, feature_means, label="Feature-Mittelwert", color="tab:blue")
-    plt.title("Durchschnittlicher Feature-Wert pro Sequenz")
-    plt.xlabel("Datum")
-    plt.ylabel("Skalierter Mittelwert")
-    plt.grid(True)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    plt.legend()
-    plt.show()
-
-    # Plot 3: Heatmap der Features (letzter Zeitschritt pro Sequenz)
-    feature_names = val_df.columns.tolist()
-    if len(feature_names) <= 60:
-        df_heat = pd.DataFrame(x_seq[:, -1, :], columns=feature_names)
-        df_heat.index = time_seq
-        plt.figure(figsize=(12, 6))
-        sns.heatmap(df_heat.T, cmap="viridis", cbar=True)
-        plt.title("Heatmap der Features (letzter Zeitschritt jeder Sequenz)")
-        plt.xlabel("Datum")
-        plt.ylabel("Features")
-        plt.tight_layout()
-        plt.show()
-    else:
-        print("⚠️ Zu viele Features für Heatmap (>60) – übersprungen.")
 
 
 if __name__ == "__main__":
-    model_folder = "benchmark"  # z.B. "benchmark", "low_input", "not_nit", "not_lyser"
-    seq_length = 18
+    model_folder = ("low_input")
 
-    x_val, y_val, val_df = load_val_data_from_config(model_folder, seq_length=seq_length)
-    plot_val_period(x_val, y_val, val_df, start="2018-09-01", end="2018-12-31", seq_length=seq_length)
+    _, _, val_df = load_val_data_from_config(model_folder)
+    plot_val_period_simplified(val_df, start="2018-09-01", end="2018-12-31")
