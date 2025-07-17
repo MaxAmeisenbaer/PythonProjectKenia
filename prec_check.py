@@ -86,3 +86,5 @@ if __name__ == "__main__":
 
     # Unskaliert vergleichen
     plot_overlaid_precipitation_lines(df, scale=False)
+
+#Summenwerte der prec-Daten pro Tage? Also pro Zeiträume - weil übersicht schwierig!
