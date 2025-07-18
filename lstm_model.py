@@ -111,8 +111,8 @@ def create_model(nodes_lstm, nodes_dense, dropout, metric, learning_rate):
 
 def train_model(model, train_ds, val_ds, early_stopping,
                 metric, epochs,
-                test_ds=None, full_ds=None, timestamps_full=None,
-                model_name=None, output_dir=None, x_full=None, scaler_y=None):
+                full_ds=None, timestamps_full=None,
+                output_dir=None, x_full=None, scaler_y=None):
     """
     Trainiert das Modell mit optionaler Evaluation und vollständiger Speicherung.
 

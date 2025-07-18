@@ -54,7 +54,7 @@ def prepare_data(config, target_feature, stations, measurements):
     )
     return train_ds, val_ds, test_ds
 
-def build_and_train_model(train_ds, val_ds, config):
+def build_and_train_model(train_ds, val_ds, config, config_name):
     model, early_stopping = create_model(
         nodes_lstm=config["nodes_lstm"],
         nodes_dense=config["nodes_dense"],
@@ -63,13 +63,20 @@ def build_and_train_model(train_ds, val_ds, config):
         learning_rate=config["learning_rate"]
     )
 
-    history, train_loss, val_loss = train_model(
+    output_dir = os.path.join("models",f"{config_name}") #unsicher
+
+    history = train_model(
         model=model,
         train_ds=train_ds,
         val_ds=val_ds,
         early_stopping=early_stopping,
         metric=config["metric"],
-        epochs=config["epochs"]
+        epochs=config["epochs"],
+        full_ds=,
+        timestamps_full=,
+        output_dir=output_dir,
+        x_full=,
+        scaler_y=
     )
     return model
 
@@ -97,7 +104,7 @@ def run(scenario):
     }
 
     train_ds, val_ds, test_ds = prepare_data(model_config, target_feature, stations, measurements)
-    model, train_loss, val_loss = build_and_train_model(train_ds, val_ds, model_config)
+    model = build_and_train_model(train_ds, val_ds, model_config, config_name)
 
     metrics_result = calculate_all_metrics(model, test_ds)
     model_name = generate_model_name(config_name, target_feature)
