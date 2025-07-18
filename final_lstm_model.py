@@ -71,7 +71,7 @@ def build_and_train_model(train_ds, val_ds, config):
         metric=config["metric"],
         epochs=config["epochs"]
     )
-    return model, train_loss, val_loss
+    return model
 
 def run(scenario):
     if scenario == "benchmark":
@@ -105,21 +105,17 @@ def run(scenario):
     os.makedirs("models", exist_ok=True)
     model.save(f"models/{model_name}.keras")
 
-    save_model_metadata(
+    save_model_metadata( #train_loss und val_loss werden nicht mehr abgespeichert
         model_name=model_name,
         params={
-            "train_loss": train_loss,
-            "val_loss": val_loss,
             **model_config,
             **metrics_result
         }
     )
 
-    return {
+    return { #train_loss und val_loss werden nicht mehr wiedergegeben
         "model_name": model_name,
-        "metrics": metrics_result,
-        "train_loss": train_loss,
-        "val_loss": val_loss
+        "metrics": metrics_result
     }
 
 if __name__ == "__main__":

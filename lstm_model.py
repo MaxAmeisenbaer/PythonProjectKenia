@@ -135,15 +135,6 @@ def train_model(model, train_ds, val_ds, early_stopping,
         verbose=0
     )
 
-    # Optional: Testmetriken und Loggen
-    if test_ds and model_name and output_dir:
-        from evaluate_model import calculate_all_metrics, log_model_to_excel
-
-        metrics = calculate_all_metrics(model, test_ds)
-        log_model_to_excel(model_name, {
-            "epochs": epochs,
-            "metric": metric
-        }, metrics)
 
     # Optional: vollständige Analyse-Dateien speichern
     if full_ds and timestamps_full is not None and x_full is not None and scaler_y is not None:
@@ -156,3 +147,4 @@ def train_model(model, train_ds, val_ds, early_stopping,
             x_full=x_full,
             scaler_y=scaler_y
         )
+        return history,
