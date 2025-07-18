@@ -6,23 +6,30 @@ class NSEMetric(tf.keras.metrics.Metric):
     def __init__(self, name="nse", **kwargs):
         super().__init__(name=name, **kwargs)
         self.sse = self.add_weight(name="sse", initializer="zeros")
-        self.var = self.add_weight(name="var", initializer="zeros")
+        self.y_true_sum = self.add_weight(name="y_true_sum", initializer="zeros")
+        self.y_true_sq_sum = self.add_weight(name="y_true_sq_sum", initializer="zeros")
         self.count = self.add_weight(name="count", initializer="zeros")
 
     def update_state(self, y_true, y_pred, sample_weight=None):
         y_true = tf.reshape(y_true, (-1,))
         y_pred = tf.reshape(y_pred, (-1,))
+
         self.sse.assign_add(tf.reduce_sum(tf.square(y_true - y_pred)))
-        self.var.assign_add(tf.reduce_sum(tf.square(y_true - tf.reduce_mean(y_true))))
+        self.y_true_sum.assign_add(tf.reduce_sum(y_true))
+        self.y_true_sq_sum.assign_add(tf.reduce_sum(tf.square(y_true)))
         self.count.assign_add(tf.cast(tf.size(y_true), tf.float32))
 
     def result(self):
-        return 1.0 - (self.sse / (self.var + tf.keras.backend.epsilon()))
+        mean_y_true = self.y_true_sum / self.count
+        total_var = self.y_true_sq_sum - self.count * tf.square(mean_y_true)
+        return 1.0 - (self.sse / (total_var + tf.keras.backend.epsilon()))
 
     def reset_states(self):
         self.sse.assign(0.0)
-        self.var.assign(0.0)
+        self.y_true_sum.assign(0.0)
+        self.y_true_sq_sum.assign(0.0)
         self.count.assign(0.0)
+
 
 class MBEMetric(tf.keras.metrics.Metric):
     def __init__(self, name="mean_bias_error", **kwargs):
@@ -102,17 +109,50 @@ def create_model(nodes_lstm, nodes_dense, dropout, metric, learning_rate):
     return model, early_stopping
 
 
-def train_model(model, train_ds, val_ds, early_stopping, metric, epochs):
-    kge_callback = KGECallback(val_ds)
-    history = model.fit(train_ds, epochs=epochs,
-                        validation_data=val_ds,
-                        callbacks=[early_stopping, kge_callback])
+def train_model(model, train_ds, val_ds, early_stopping,
+                metric, epochs,
+                test_ds=None, full_ds=None, timestamps_full=None,
+                model_name=None, output_dir=None, x_full=None, scaler_y=None):
+    """
+    Trainiert das Modell mit optionaler Evaluation und vollständiger Speicherung.
 
+    Args:
+        model: Das zu trainierende Modell.
+        train_ds, val_ds: Trainings- und Validierungsdaten.
+        early_stopping: Keras EarlyStopping Callback.
+        metric: Bewertungsmetrik.
+        epochs: Anzahl Epochen.
+        test_ds: Optionaler Testdatensatz für Metriken.
+        full_ds: Optionaler vollständiger Datensatz für Speicherung.
+        timestamps_full, model_name, output_dir, X_full, scaler_y: Optional – nur für vollständige Speicherung nötig.
+    """
 
+    history = model.fit(
+        train_ds,
+        validation_data=val_ds,
+        epochs=epochs,
+        callbacks=[early_stopping],
+        verbose=0
+    )
 
-    print(history.history.keys())
+    # Optional: Testmetriken und Loggen
+    if test_ds and model_name and output_dir:
+        from evaluate_model import calculate_all_metrics, log_model_to_excel
 
-    final_train_loss = history.history["loss"][-1]
-    final_val_loss = history.history["val_loss"][-1]
+        metrics = calculate_all_metrics(model, test_ds)
+        log_model_to_excel(model_name, {
+            "epochs": epochs,
+            "metric": metric
+        }, metrics)
 
-    return history, final_train_loss, final_val_loss
+    # Optional: vollständige Analyse-Dateien speichern
+    if full_ds and timestamps_full is not None and x_full is not None and scaler_y is not None:
+        from evaluate_model import evaluate_and_store_full_predictions
+        evaluate_and_store_full_predictions(
+            model=model,
+            full_ds=full_ds,
+            timestamps=timestamps_full,
+            output_dir=output_dir,
+            x_full=x_full,
+            scaler_y=scaler_y
+        )

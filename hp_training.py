@@ -86,7 +86,7 @@ _, early_stopping = create_model(
 )
 
 train_model(best_model, train_ds, val_ds, early_stopping,
-            metric="r_square", epochs=best_hp["epochs"])
+            metric="mean_squared_error", epochs=best_hp["epochs"])
 
 print("Beste Hyperparameter:")
 for hp_name in best_hp.values.keys():

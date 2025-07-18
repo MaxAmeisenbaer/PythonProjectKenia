@@ -8,7 +8,7 @@ from data_prepro import create_final_ds
 from benchmark_szenario_sha import get_benchmark_config
 from low_input_szenario_sha import get_low_input_config
 from not_nit_szenario_sha import get_not_nit_config
-from evaluate_model import calculate_all_metrics
+from evaluate_model import calculate_all_metrics, evaluate_and_store_full_predictions
 from not_lyser import get_not_lyser_config
 
 
