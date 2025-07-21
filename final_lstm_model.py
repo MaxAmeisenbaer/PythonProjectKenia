@@ -104,8 +104,9 @@ def run(scenario):
     metrics_result = calculate_all_metrics(model, test_ds)
     model_name = generate_model_name(config_name, target_feature)
 
-    os.makedirs("models", exist_ok=True)
-    model.save(f"models/{model_name}.keras")
+    output_dir = os.path.join("models", config_name)
+    os.makedirs(output_dir, exist_ok=True)
+    model.save(os.path.join(output_dir, f"{model_name}.keras"))
 
     early_stopped = len(history.history["loss"])
 
@@ -117,7 +118,6 @@ def run(scenario):
             **metrics_result
         }
     )
-    output_dir = os.path.join("models",config_name)
 
     if full_ds is not None and timestamps_full is not None and x_full is not None and scaler_y is not None:
         from evaluate_model import evaluate_and_store_full_predictions
