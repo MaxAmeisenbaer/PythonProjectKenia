@@ -213,6 +213,8 @@ def create_tf_dataset(data, target, seq_length, batch_size):
     return ds
 
 
+import joblib  # ggf. am Anfang ergänzen
+
 def create_final_ds(station, stations, measurements, target_feature,
                     batch_size, seq_length, interval="10min"):
     """
@@ -226,15 +228,28 @@ def create_final_ds(station, stations, measurements, target_feature,
     :param batch_size: Batchgröße für das LSTM
     :param seq_length: Sequenzlänge
     :param interval: Resampling-Intervall
-    :return: TensorFlow-Datasets und die unskalierten Splits (train_df, val_df, test_df)
+    :return: train_ds, val_ds, test_ds, train_df, test_df, val_df,
+             X_full, y_full, timestamps_full, scaler_y
     """
     df = load_data(stations, measurements, interval=interval)
     df.to_pickle(f"{station}-dataframe.pkl")
     df.drop(columns=df.columns[df.columns.duplicated()], inplace=True)
 
+    # Neue Outputs vorbereiten
+    timestamps_full = df.index.to_numpy()
+    x_full = df.drop(columns=[target_feature]).to_numpy()
+    y_full = np.array(df[target_feature], ndmin=2).T
+
+    # Ziel-Scaler speichern
+    scaler_y = MinMaxScaler()
+    scaler_y.fit(y_full)
+
+
+    # Bestehende Verarbeitung
     train_df, val_df, test_df = split_dataset(df, target_feature)
     x_train, x_val, x_test, _ = scale_features(train_df, val_df, test_df, target_feature)
     y_train, y_val, y_test = prepare_targets(train_df, val_df, test_df, target_feature)
     train_ds, val_ds, test_ds = make_tf_datasets(x_train, x_val, x_test, y_train, y_val, y_test, seq_length, batch_size)
 
-    return train_ds, val_ds, test_ds, train_df, test_df, val_df
+    return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, y_full, timestamps_full, scaler_y
+
