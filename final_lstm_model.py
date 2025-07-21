@@ -44,7 +44,7 @@ def generate_model_name(config_name, target_feature, output_path="model_log.xlsx
     return f"{prefix}_{next_number:03d}"
 
 def prepare_data(config, target_feature, stations, measurements):
-    train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, y_full, timestamps_full, scaler_y = create_final_ds(
+    train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y = create_final_ds(
         station="SHA",
         stations=stations,
         target_feature=target_feature,
@@ -52,9 +52,9 @@ def prepare_data(config, target_feature, stations, measurements):
         seq_length=config["seq_length"],
         measurements=measurements
     )
-    return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, y_full, timestamps_full, scaler_y
+    return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
 
-def build_and_train_model(train_ds, val_ds, config, config_name, x_full, y_full, timestamps_full, scaler_y):
+def build_and_train_model(train_ds, val_ds, config):
     model, early_stopping = create_model(
         nodes_lstm=config["nodes_lstm"],
         nodes_dense=config["nodes_dense"],
@@ -63,8 +63,6 @@ def build_and_train_model(train_ds, val_ds, config, config_name, x_full, y_full,
         learning_rate=config["learning_rate"]
     )
 
-    output_dir = os.path.join("models",f"{config_name}") #unsicher
-
     history = train_model(
         model=model,
         train_ds=train_ds,
@@ -72,11 +70,6 @@ def build_and_train_model(train_ds, val_ds, config, config_name, x_full, y_full,
         early_stopping=early_stopping,
         metric=config["metric"],
         epochs=config["epochs"],
-        full_ds=y_full,
-        timestamps_full=timestamps_full,
-        output_dir=output_dir,
-        x_full=x_full,
-        scaler_y=scaler_y
     )
     return model, history
 
@@ -103,10 +96,10 @@ def run(scenario):
         "epochs": 70
     }
 
-    train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, y_full, timestamps_full, scaler_y = prepare_data(
+    train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y = prepare_data(
         model_config, target_feature, stations, measurements)
     model, history = build_and_train_model(
-        train_ds, val_ds, model_config, config_name, x_full, y_full, timestamps_full, scaler_y)
+        train_ds, val_ds, model_config)
 
     metrics_result = calculate_all_metrics(model, test_ds)
     model_name = generate_model_name(config_name, target_feature)
@@ -124,6 +117,18 @@ def run(scenario):
             **metrics_result
         }
     )
+    output_dir = os.path.join("models",config_name)
+
+    if full_ds is not None and timestamps_full is not None and x_full is not None and scaler_y is not None:
+        from evaluate_model import evaluate_and_store_full_predictions
+        evaluate_and_store_full_predictions(
+            model=model,
+            full_ds=full_ds,
+            timestamps=timestamps_full,
+            output_dir=output_dir,
+            x_full=x_full,
+            scaler_y=scaler_y
+        )
 
     return { #train_loss und val_loss werden nicht mehr wiedergegeben
         "model_name": model_name,
@@ -131,4 +136,4 @@ def run(scenario):
     }
 
 if __name__ == "__main__":
-    run(scenario= "benchmark")
+    run(scenario= "low_input")

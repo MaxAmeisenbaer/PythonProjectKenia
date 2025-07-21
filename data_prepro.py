@@ -212,8 +212,28 @@ def create_tf_dataset(data, target, seq_length, batch_size):
     )
     return ds
 
+def create_full_dataset_with_timestamps(x_full, y_full, timestamps, seq_length, batch_size):
+    """
+    Erstellt ein tf.data.Dataset aus Sequenzen, Targets und zugehörigen Zeitstempeln.
+    """
+    x_seq = []
+    y_seq = []
+    t_seq = []
 
-import joblib  # ggf. am Anfang ergänzen
+    for i in range(len(x_full) - seq_length):
+        x_seq.append(x_full[i:i + seq_length])
+        y_seq.append(y_full[i + seq_length])
+        t_seq.append(timestamps[i + seq_length])  # Zeitpunkt des Zielwerts
+
+    x_seq = np.array(x_seq)
+    y_seq = np.array(y_seq)
+    t_seq = np.array(t_seq, dtype=str)
+
+    # Dataset mit (x, y, timestamp)
+    ds = tf.data.Dataset.from_tensor_slices((x_seq, y_seq, t_seq))
+    ds = ds.batch(batch_size)
+
+    return ds
 
 def create_final_ds(station, stations, measurements, target_feature,
                     batch_size, seq_length, interval="10min"):
@@ -239,6 +259,7 @@ def create_final_ds(station, stations, measurements, target_feature,
     timestamps_full = df.index.to_numpy()
     x_full = df.drop(columns=[target_feature]).to_numpy()
     y_full = np.array(df[target_feature], ndmin=2).T
+    full_ds = create_full_dataset_with_timestamps(x_full, y_full, timestamps_full, seq_length, batch_size)
 
     # Ziel-Scaler speichern
     scaler_y = MinMaxScaler()
@@ -251,5 +272,5 @@ def create_final_ds(station, stations, measurements, target_feature,
     y_train, y_val, y_test = prepare_targets(train_df, val_df, test_df, target_feature)
     train_ds, val_ds, test_ds = make_tf_datasets(x_train, x_val, x_test, y_train, y_val, y_test, seq_length, batch_size)
 
-    return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, y_full, timestamps_full, scaler_y
+    return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
 

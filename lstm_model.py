@@ -110,9 +110,7 @@ def create_model(nodes_lstm, nodes_dense, dropout, metric, learning_rate):
 
 
 def train_model(model, train_ds, val_ds, early_stopping,
-                metric, epochs,
-                full_ds=None, timestamps_full=None,
-                output_dir=None, x_full=None, scaler_y=None):
+                metric, epochs):
     """
     Trainiert das Modell mit optionaler Evaluation und vollständiger Speicherung.
 
@@ -132,19 +130,6 @@ def train_model(model, train_ds, val_ds, early_stopping,
         validation_data=val_ds,
         epochs=epochs,
         callbacks=[early_stopping],
-        verbose=0
+        verbose=1
     )
-
-
-    # Optional: vollständige Analyse-Dateien speichern
-    if full_ds and timestamps_full is not None and x_full is not None and scaler_y is not None:
-        from evaluate_model import evaluate_and_store_full_predictions
-        evaluate_and_store_full_predictions(
-            model=model,
-            full_ds=full_ds,
-            timestamps=timestamps_full,
-            output_dir=output_dir,
-            x_full=x_full,
-            scaler_y=scaler_y
-        )
-        return history
+    return history
