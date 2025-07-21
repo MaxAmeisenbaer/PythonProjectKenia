@@ -147,4 +147,4 @@ def train_model(model, train_ds, val_ds, early_stopping,
             x_full=x_full,
             scaler_y=scaler_y
         )
-        return history,
+        return history

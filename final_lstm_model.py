@@ -78,7 +78,7 @@ def build_and_train_model(train_ds, val_ds, config, config_name, x_full, y_full,
         x_full=x_full,
         scaler_y=scaler_y
     )
-    return model
+    return model, history
 
 def run(scenario):
     if scenario == "benchmark":
@@ -105,7 +105,7 @@ def run(scenario):
 
     train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, y_full, timestamps_full, scaler_y = prepare_data(
         model_config, target_feature, stations, measurements)
-    model = build_and_train_model(
+    model, history = build_and_train_model(
         train_ds, val_ds, model_config, config_name, x_full, y_full, timestamps_full, scaler_y)
 
     metrics_result = calculate_all_metrics(model, test_ds)
@@ -114,10 +114,13 @@ def run(scenario):
     os.makedirs("models", exist_ok=True)
     model.save(f"models/{model_name}.keras")
 
+    early_stopped = len(history.history["loss"])
+
     save_model_metadata( #train_loss und val_loss werden nicht mehr abgespeichert
         model_name=model_name,
         params={
             **model_config,
+            "early_stopped": early_stopped,
             **metrics_result
         }
     )
