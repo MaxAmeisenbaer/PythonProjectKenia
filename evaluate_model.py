@@ -89,7 +89,7 @@ def evaluate_and_store_full_predictions(model, full_ds, timestamps, output_dir,
     y_pred = np.array(y_pred)
     timestamps_collected = np.array(timestamps_collected).reshape(-1)
 
-    assert len(y_true) == len(timestamps), "Länge von y_true und Zeitachse passt nicht!"
+    assert len(y_true) == len(timestamps_collected), "Länge von y_true und Zeitachse passt nicht!"
 
     os.makedirs(output_dir, exist_ok=True)
 

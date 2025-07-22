@@ -8,7 +8,8 @@ from data_prepro import create_final_ds
 from benchmark_szenario_sha import get_benchmark_config
 from low_input_szenario_sha import get_low_input_config
 from not_nit_szenario_sha import get_not_nit_config
-from evaluate_model import calculate_all_metrics, evaluate_and_store_full_predictions
+from test_code_szenario import get_test_code_config
+from evaluate_model import calculate_all_metrics
 from not_lyser import get_not_lyser_config
 
 
@@ -82,6 +83,8 @@ def run(scenario):
         stations, measurements, target_feature, config_name = get_not_nit_config()
     elif scenario == "not_lyser":
         stations, measurements, target_feature, config_name = get_not_lyser_config()
+    elif scenario == "test_code":
+        stations, measurements, target_feature, config_name = get_test_code_config()
     else:
         raise ValueError(f"Unbekanntes Szenario: {scenario}")
 
@@ -93,7 +96,7 @@ def run(scenario):
         "learning_rate": 0.0001,
         "batch_size": 16,
         "seq_length": 18,
-        "epochs": 70
+        "epochs": 5 #eigentlich - 70 für Testung geändert
     }
 
     train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y = prepare_data(
@@ -136,4 +139,4 @@ def run(scenario):
     }
 
 if __name__ == "__main__":
-    run(scenario= "low_input")
+    run(scenario= "test_code")

@@ -31,71 +31,71 @@ def get_all_timestamps(filepath="Data/SHA-nit.csv", interval="10min", valid_time
 
 
 def load_model_and_predictions(model_folder, keras_file):
-    model_name = os.path.basename(model_folder)
-    model = keras.models.load_model(os.path.join(model_folder, keras_file), compile=False)
+    """
+    Lädt das Modell und die konsolidierten Vorhersage- und Zeitreihendateien aus dem Modellordner.
 
-    predictions_train = np.load(os.path.join(model_folder, "predictions_train.npy"))
-    predictions_val = np.load(os.path.join(model_folder, "predictions_val.npy"))
-    predictions_test = np.load(os.path.join(model_folder, "predictions_test.npy"))
+    :param model_folder: Pfad zum Modellordner (z. B. 'models/benchmark')
+    :param keras_file: Name der .keras-Datei im Modellordner
+    :return: model_name, predictions_full, y_true_full, timestamps_full
+    """
+    model_path = os.path.join(model_folder, keras_file)
+    model_name = os.path.splitext(keras_file)[0]
 
-    y_train = np.load(os.path.join(model_folder, "y_train.npy"))
-    y_val = np.load(os.path.join(model_folder, "y_val.npy"))
-    y_test = np.load(os.path.join(model_folder, "y_test.npy"))
+    model = keras.models.load_model(model_path)
 
-    return model_name, predictions_train, predictions_val, predictions_test, y_train, y_val, y_test
+    predictions = np.load(os.path.join(model_folder, "predictions_full.npy"))
+    y_true = np.load(os.path.join(model_folder, "y_true_full.npy"))
+    timestamps = np.load(os.path.join(model_folder, "dates_full.npy"), allow_pickle=True)
+
+    return model_name, predictions, y_true, timestamps
 
 
-def plot_predictions_full_timeline(model_folder, keras_file, output_folder, full_timestamps):
-    model_name, pred_train, pred_val, pred_test, y_train, y_val, y_test = load_model_and_predictions(model_folder,
-                                                                                                     keras_file)
+def plot_predictions_full_timeline(model_folder, keras_file, output_path, full_timestamps, seq_length=18):
+    model_name, y_pred, y_true, _ = load_model_and_predictions(model_folder, keras_file)
 
-    predictions = np.concatenate([pred_train, pred_val, pred_test])
-    targets = np.concatenate([y_train, y_val, y_test])
+    # Zeitachse anpassen
+    diff = len(full_timestamps) - len(y_pred)
+    if diff == seq_length - 1:
+        full_timestamps = full_timestamps[(seq_length - 1):]
+        print(f"ℹ️ Zeitachse automatisch um seq_length-1={seq_length - 1} gekürzt.")
+    elif diff == seq_length:
+        full_timestamps = full_timestamps[seq_length:]
+        print(f"ℹ️ Zeitachse automatisch um seq_length={seq_length} gekürzt.")
+    else:
+        print(f"❌ Länge der Vorhersage ({len(y_pred)}) passt nicht zur Zeitachse ({len(full_timestamps)})!")
+        return
 
-    offset = len(full_timestamps) - len(predictions)
-    timestamps = full_timestamps[offset:]
-
-    if len(timestamps) != len(predictions):
-        raise ValueError("Länge der Zeitstempel stimmt nicht mit Vorhersage-/Zielwerten überein.")
-
-    plt.figure(figsize=(16, 6))
-    plt.plot(timestamps, targets, label='Messwerte', color='black', linewidth=2)
-    plt.plot(timestamps, predictions, label='Vorhersage', color='red', linestyle='--')
-
-    n = len(targets)
-    train_idx = len(pred_train)
-    val_idx = train_idx + len(pred_val)
-
-    plt.axvline(timestamps[train_idx], color='blue', linestyle=':', label='Train/Val-Grenze')
-    plt.axvline(timestamps[val_idx], color='green', linestyle=':', label='Val/Test-Grenze')
-
-    plt.title(f"Vorhersage vs Messung – Modell: {model_name}")
-    plt.xlabel("Zeit")
-    plt.ylabel("Nitratkonzentration [mg/L]")
-    plt.legend()
-    plt.grid(True)
+    fig, ax = plt.subplots(figsize=(15, 4))
+    ax.plot(full_timestamps, y_true, label='Wahr', linewidth=1.2)
+    ax.plot(full_timestamps, y_pred, label='Vorhersage', linewidth=1.2, linestyle='--')
+    ax.set_title(f"Modellvorhersage: {model_name}")
+    ax.set_xlabel("Zeit")
+    ax.set_ylabel("Konzentration")
+    ax.legend()
     plt.tight_layout()
+    fig.savefig(os.path.join(output_path, f"{model_name}_full_plot.png"))
+    plt.close(fig)
 
-    os.makedirs(output_folder, exist_ok=True)
-    output_path = os.path.join(output_folder, f"{model_name}_zeitreihe_full.png")
-    plt.savefig(output_path)
-    plt.close()
+
 
 
 def plot_scatter(model_folder, output_folder, keras_file):
-    model_name, pred_train, pred_val, pred_test, y_train, y_val, y_test = load_model_and_predictions(model_folder,
-                                                                                                     keras_file)
+    """
+    Plottet einen Scatterplot zwischen gemessenen und vorhergesagten Werten.
 
-    y_all = np.concatenate([y_train, y_val, y_test])
-    pred_all = np.concatenate([pred_train, pred_val, pred_test])
+    :param model_folder: Pfad zum Modellordner
+    :param output_folder: Zielordner für die Grafik
+    :param keras_file: Modell-Dateiname (.keras)
+    """
+    model_name, predictions, y_true, _ = load_model_and_predictions(model_folder, keras_file)
 
     plt.figure(figsize=(6, 6))
-    plt.scatter(y_all, pred_all, color="dodgerblue", edgecolor='k', alpha=0.75)
-    plt.plot([y_all.min(), y_all.max()], [y_all.min(), y_all.max()], 'k--', lw=2)
+    plt.scatter(y_true, predictions, color="dodgerblue", edgecolor='k', alpha=0.75)
+    plt.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], 'k--', lw=2)
 
-    plt.xlabel("Observed (mg/l)", fontsize=12)
-    plt.ylabel("Predicted (mg/l)", fontsize=12)
-    plt.title(f"Nitrate for station {model_name}", fontsize=14)
+    plt.xlabel("Gemessen (mg/l)", fontsize=12)
+    plt.ylabel("Vorhergesagt (mg/l)", fontsize=12)
+    plt.title(f"Nitrat: {model_name}", fontsize=14)
     plt.grid(True)
     plt.axis("equal")
     plt.tight_layout()
@@ -104,6 +104,7 @@ def plot_scatter(model_folder, output_folder, keras_file):
     output_path = os.path.join(output_folder, f"{model_name}_scatter.png")
     plt.savefig(output_path)
     plt.close()
+
 
 
 def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir, full_timestamps):
@@ -117,6 +118,8 @@ def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scat
             keras_file = "LSTM_SHA_not_lyser_nit_001.keras"
         elif szenario == "not_nit":
             keras_file = "LSTM_SHA_not_nit_nit_001.keras"
+        elif szenario == "test_code":
+            keras_file = "LSTM_SHA_test_code_nit_001.keras"
         else:
             raise ValueError(f"Unbekannter Modellordner: {szenario}")
 
@@ -125,7 +128,26 @@ def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scat
 
 
 def main():
-    szenarien = ["benchmark", "low_input", "not_lyser", "not_nit"]
+    szenarien = ["benchmark", "low_input", "not_lyser", "not_nit", "test_code"]
+    base_model_dir = "models"
+    output_zeitreihe_dir = "figures/zeitreihe"
+    output_scatter_dir = "figures/scatter"
+
+    full_timestamps = get_all_timestamps(filepath="Data/SHA-nit.csv", interval="10min")
+
+    plot_all_models(
+        szenarien,
+        base_model_dir,
+        output_zeitreihe_dir,
+        output_scatter_dir,
+        full_timestamps
+    )
+
+
+#if __name__ == "__main__":
+#    main()
+def test_single_model():
+    szenarien = ["test_code"]
     base_model_dir = "models"
     output_zeitreihe_dir = "figures/zeitreihe"
     output_scatter_dir = "figures/scatter"
@@ -142,4 +164,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    test_single_model()
