@@ -144,8 +144,8 @@ def main():
     )
 
 
-#if __name__ == "__main__":
-#    main()
+if __name__ == "__main__":
+    main()
 def test_single_model():
     szenarien = ["test_code"]
     base_model_dir = "models"
@@ -163,5 +163,5 @@ def test_single_model():
     )
 
 
-if __name__ == "__main__":
-    test_single_model()
+#if __name__ == "__main__":
+ #   test_single_model()
