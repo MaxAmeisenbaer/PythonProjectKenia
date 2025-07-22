@@ -34,7 +34,7 @@ def load_model_and_predictions(model_folder, keras_file):
     """
     Lädt das Modell und die konsolidierten Vorhersage- und Zeitreihendateien aus dem Modellordner.
 
-    :param model_folder: Pfad zum Modellordner (z. B. 'models/benchmark')
+    :param model_folder: Pfad zum Modellordner (z.B. 'models/benchmark')
     :param keras_file: Name der .keras-Datei im Modellordner
     :return: model_name, predictions_full, y_true_full, timestamps_full
     """
@@ -66,15 +66,14 @@ def plot_predictions_full_timeline(model_folder, keras_file, output_path, full_t
         return
 
     fig, ax = plt.subplots(figsize=(15, 4))
-    ax.plot(full_timestamps, y_true, label='Wahr', linewidth=1.2)
-    ax.plot(full_timestamps, y_pred, label='Vorhersage', linewidth=1.2, linestyle='--')
+    ax.plot(full_timestamps, y_true, label='Messwert', color="black", linewidth=1.2)
+    ax.plot(full_timestamps, y_pred, label='Vorhersage', color="red", linewidth=1.2, linestyle='--')
     ax.set_title(f"Modellvorhersage: {model_name}")
     ax.set_xlabel("Zeit")
-    ax.set_ylabel("Konzentration")
+    ax.set_ylabel("Nitrat [mg/L]")
     ax.legend()
     plt.tight_layout()
 
-    # Neuer Dateiname mit szenario + grafikart
     fig.savefig(os.path.join(output_path, f"{szenario}_zeitreihe.png"))
     plt.close(fig)
 
@@ -96,7 +95,7 @@ def plot_scatter(model_folder, output_folder, keras_file, szenario):
     plt.tight_layout()
 
     os.makedirs(output_folder, exist_ok=True)
-    # Neuer Dateiname mit szenario + grafikart
+
     output_path = os.path.join(output_folder, f"{szenario}_scatter.png")
     plt.savefig(output_path)
     plt.close()
@@ -140,10 +139,10 @@ def main():
     )
 
 
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+#    main()
 def test_single_model():
-    szenarien = ["test_code"]
+    szenarien = ["benchmark"]
     base_model_dir = "models"
     output_zeitreihe_dir = "figures/zeitreihe"
     output_scatter_dir = "figures/scatter"
@@ -159,5 +158,5 @@ def test_single_model():
     )
 
 
-#if __name__ == "__main__":
-#    test_single_model()
+if __name__ == "__main__":
+    test_single_model()

@@ -96,7 +96,7 @@ def run(scenario):
         "learning_rate": 0.0001,
         "batch_size": 16,
         "seq_length": 18,
-        "epochs": 5 #eigentlich - 70 für Testung geändert
+        "epochs": 70
     }
 
     train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y = prepare_data(
@@ -139,4 +139,4 @@ def run(scenario):
     }
 
 if __name__ == "__main__":
-    run(scenario= "test_code")
+    run(scenario= "benchmark")
