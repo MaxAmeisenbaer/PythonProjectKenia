@@ -50,7 +50,7 @@ def load_model_and_predictions(model_folder, keras_file):
     return model_name, predictions, y_true, timestamps
 
 
-def plot_predictions_full_timeline(model_folder, keras_file, output_path, full_timestamps, seq_length=18):
+def plot_predictions_full_timeline(model_folder, keras_file, output_path, full_timestamps, szenario, seq_length=18):
     model_name, y_pred, y_true, _ = load_model_and_predictions(model_folder, keras_file)
 
     # Zeitachse anpassen
@@ -73,20 +73,15 @@ def plot_predictions_full_timeline(model_folder, keras_file, output_path, full_t
     ax.set_ylabel("Konzentration")
     ax.legend()
     plt.tight_layout()
-    fig.savefig(os.path.join(output_path, f"{model_name}_full_plot.png"))
+
+    # Neuer Dateiname mit szenario + grafikart
+    fig.savefig(os.path.join(output_path, f"{szenario}_zeitreihe.png"))
     plt.close(fig)
 
 
 
 
-def plot_scatter(model_folder, output_folder, keras_file):
-    """
-    Plottet einen Scatterplot zwischen gemessenen und vorhergesagten Werten.
-
-    :param model_folder: Pfad zum Modellordner
-    :param output_folder: Zielordner für die Grafik
-    :param keras_file: Modell-Dateiname (.keras)
-    """
+def plot_scatter(model_folder, output_folder, keras_file, szenario):
     model_name, predictions, y_true, _ = load_model_and_predictions(model_folder, keras_file)
 
     plt.figure(figsize=(6, 6))
@@ -101,7 +96,8 @@ def plot_scatter(model_folder, output_folder, keras_file):
     plt.tight_layout()
 
     os.makedirs(output_folder, exist_ok=True)
-    output_path = os.path.join(output_folder, f"{model_name}_scatter.png")
+    # Neuer Dateiname mit szenario + grafikart
+    output_path = os.path.join(output_folder, f"{szenario}_scatter.png")
     plt.savefig(output_path)
     plt.close()
 
@@ -123,8 +119,8 @@ def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scat
         else:
             raise ValueError(f"Unbekannter Modellordner: {szenario}")
 
-        plot_predictions_full_timeline(model_path, keras_file, output_zeitreihe_dir, full_timestamps)
-        plot_scatter(model_path, output_scatter_dir, keras_file)
+        plot_predictions_full_timeline(model_path, keras_file, output_zeitreihe_dir, full_timestamps, szenario)
+        plot_scatter(model_path, output_scatter_dir, keras_file, szenario)
 
 
 def main():
@@ -164,4 +160,4 @@ def test_single_model():
 
 
 #if __name__ == "__main__":
- #   test_single_model()
+#    test_single_model()
