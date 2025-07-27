@@ -46,24 +46,18 @@ def load_model_and_predictions(model_folder, keras_file):
     predictions = np.load(os.path.join(model_folder, "predictions_full.npy"))
     y_true = np.load(os.path.join(model_folder, "y_true_full.npy"))
     timestamps = np.load(os.path.join(model_folder, "dates_full.npy"), allow_pickle=True)
+    timestamps = pd.to_datetime(timestamps)
 
     return model_name, predictions, y_true, timestamps
 
 
-def plot_predictions_full_timeline(model_folder, keras_file, output_path, full_timestamps, szenario, seq_length=18):
-    model_name, y_pred, y_true, _ = load_model_and_predictions(model_folder, keras_file)
+def plot_predictions_full_timeline(model_folder, keras_file, output_path, szenario, seq_length=18):
+    model_name, y_pred, y_true, full_timestamps = load_model_and_predictions(model_folder, keras_file)
 
     # Zeitachse anpassen
     diff = len(full_timestamps) - len(y_pred)
-    if diff == seq_length - 1:
-        full_timestamps = full_timestamps[(seq_length - 1):]
-        print(f"ℹ️ Zeitachse automatisch um seq_length-1={seq_length - 1} gekürzt.")
-    elif diff == seq_length:
-        full_timestamps = full_timestamps[seq_length:]
-        print(f"ℹ️ Zeitachse automatisch um seq_length={seq_length} gekürzt.")
-    else:
-        print(f"❌ Länge der Vorhersage ({len(y_pred)}) passt nicht zur Zeitachse ({len(full_timestamps)})!")
-        return
+    if len(full_timestamps) != len(y_pred):
+        raise ValueError(f"Längen passen nicht: {len(full_timestamps)} vs. {len(y_pred)}")
 
     fig, ax = plt.subplots(figsize=(15, 4))
     ax.plot(full_timestamps, y_true, label='Messwert', color="black", linewidth=1.2)
@@ -102,7 +96,7 @@ def plot_scatter(model_folder, output_folder, keras_file, szenario):
 
 
 
-def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir, full_timestamps):
+def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir):
     for szenario in szenarien:
         model_path = os.path.join(base_model_dir, szenario)
         if szenario == "benchmark":
@@ -118,7 +112,7 @@ def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scat
         else:
             raise ValueError(f"Unbekannter Modellordner: {szenario}")
 
-        plot_predictions_full_timeline(model_path, keras_file, output_zeitreihe_dir, full_timestamps, szenario)
+        plot_predictions_full_timeline(model_path, keras_file, output_zeitreihe_dir, szenario)
         plot_scatter(model_path, output_scatter_dir, keras_file, szenario)
 
 
@@ -128,14 +122,12 @@ def main():
     output_zeitreihe_dir = "figures/zeitreihe"
     output_scatter_dir = "figures/scatter"
 
-    full_timestamps = get_all_timestamps(filepath="Data/SHA-nit.csv", interval="10min")
 
     plot_all_models(
         szenarien,
         base_model_dir,
         output_zeitreihe_dir,
-        output_scatter_dir,
-        full_timestamps
+        output_scatter_dir
     )
 
 
@@ -147,14 +139,12 @@ def test_single_model():
     output_zeitreihe_dir = "figures/zeitreihe"
     output_scatter_dir = "figures/scatter"
 
-    full_timestamps = get_all_timestamps(filepath="Data/SHA-nit.csv", interval="10min")
 
     plot_all_models(
         szenarien,
         base_model_dir,
         output_zeitreihe_dir,
-        output_scatter_dir,
-        full_timestamps
+        output_scatter_dir
     )
 
 
