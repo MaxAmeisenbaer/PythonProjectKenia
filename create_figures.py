@@ -66,7 +66,7 @@ def plot_predictions_full_timeline(model_folder, keras_file, output_path, szenar
     if full_timestamps.min() < test_start < full_timestamps.max():
         ax.axvline(test_start, color='blue', linestyle='--', linewidth=1.5)
 
-    ax.set_title(f"Modellvorhersage: {model_name}")
+    ax.set_title(szenario)
     ax.set_xlabel("Zeit")
     ax.set_ylabel("Nitrat [mg/L]")
     ax.legend()
@@ -89,7 +89,7 @@ def plot_scatter(model_folder, output_folder, keras_file, szenario):
 
     plt.xlabel("Gemessen (mg/l)", fontsize=12)
     plt.ylabel("Vorhergesagt (mg/l)", fontsize=12)
-    plt.title(f"Nitrat: {model_name}", fontsize=14)
+    plt.title(szenario, fontsize=14)
     plt.grid(True)
     plt.axis("equal")
     plt.tight_layout()
