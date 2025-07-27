@@ -261,10 +261,9 @@ def create_final_ds(station, stations, measurements, target_feature,
     y_full = np.array(df[target_feature], ndmin=2).T
 
     # Feature-Scaler fitten und Eingabematrix skalieren
-    x_full = df.drop(columns=[target_feature]).to_numpy()
     scaler = MinMaxScaler()
-    scaler.fit(x_full)
-    x_full = scaler.transform(x_full)
+    x_full = scaler.transform(df.drop(columns=[target_feature]))
+    x_full = np.clip(x_full, 0, 1)
 
     # Zielvariable separat skalieren
     scaler_y = MinMaxScaler()

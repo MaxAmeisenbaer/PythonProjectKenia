@@ -41,49 +41,60 @@ def find_dip_segment(y_pred, threshold=0.2, min_length=20):
 
     return dip_start, dip_end
 
+def rebuild_sequences(X, seq_length):
+    # X: (T, n_features)  ->  X_seq: (T-seq_length, seq_length, n_features)
+    return np.array([X[i:i+seq_length] for i in range(len(X) - seq_length)])
 
-def extract_feature_stats(X, indices, feature_names=None):
-    X_sel = X[indices]  # shape (T, seq_len, n_features)
-    # Mittelwert über Zeit und Sequenzfenster
-    X_mean = X_sel.mean(axis=1)  # shape (T, n_features)
 
-    stats = {
-        "mean": np.mean(X_mean, axis=0),
-        "std": np.std(X_mean, axis=0),
-    }
+def extract_feature_stats(X, indices, seq_length, feature_names=None):
+    # X kann (T, n_features) oder (T, seq_len, n_features) sein
+    if X.ndim == 2:
+        X = rebuild_sequences(X, seq_length)  # -> (T', seq_len, n_features)
+
+    X_sel = X[indices]  # (T_seg, seq_len, n_features)
+
+    # Mittelwerte/Std pro Feature über beide Zeitachsen
+    mean_feat = X_sel.mean(axis=(0, 1))  # (n_features,)
+    std_feat  = X_sel.std(axis=(0, 1))   # (n_features,)
 
     if feature_names is None:
         feature_names = [f"feature_{i}" for i in range(X.shape[2])]
 
-    df = pd.DataFrame(stats, index=feature_names)
+    df = pd.DataFrame(
+        {"mean": mean_feat, "std": std_feat},
+        index=feature_names
+    )
     return df
 
 
-def compare_segments(X, y_pred, y_true, dates, feature_names=None, threshold=0.2):
+
+def compare_segments(X, y_pred, y_true, dates, seq_length, feature_names=None, threshold=0.2):
     dip_start, dip_end = find_dip_segment(y_pred, threshold=threshold)
     dip_indices = np.arange(dip_start, dip_end + 1)
 
-    # Vergleichsbereich: gleicher Abstand davor
     before_start = max(0, dip_start - (dip_end - dip_start + 1))
     before_indices = np.arange(before_start, dip_start)
 
     print(f"Dip:     {dates[dip_start]} bis {dates[dip_end]}  (len={len(dip_indices)})")
     print(f"Davor:   {dates[before_start]} bis {dates[dip_start - 1]}  (len={len(before_indices)})")
 
-    df_dip = extract_feature_stats(X, dip_indices, feature_names)
-    df_before = extract_feature_stats(X, before_indices, feature_names)
+    df_before = extract_feature_stats(X, before_indices, seq_length, feature_names)
+    df_dip    = extract_feature_stats(X, dip_indices,    seq_length, feature_names)
 
     df = df_before.join(df_dip, lsuffix="_before", rsuffix="_dip")
-    df["Δmean"] = df["mean_dip"] - df["mean_before"]
+    df["Δmean"]    = df["mean_dip"] - df["mean_before"]
     df["Δmean[%]"] = 100 * df["Δmean"] / (df["mean_before"] + 1e-9)
-    df["Δstd"] = df["std_dip"] - df["std_before"]
-    df["Δstd[%]"] = 100 * df["Δstd"] / (df["std_before"] + 1e-9)
+    df["Δstd"]     = df["std_dip"] - df["std_before"]
+    df["Δstd[%]"]  = 100 * df["Δstd"] / (df["std_before"] + 1e-9)
 
-    return df.sort_values("Δmean[%]", key=abs, ascending=False)
+    return df.sort_values("Δmean[%]", key=lambda s: s.abs(), ascending=False)
+
 
 
 # Beispielaufruf
 if __name__ == "__main__":
+    seq_length = 18  # an dein Setup anpassen
+
     X, y_pred, y_true, dates = load_data(
         "models/benchmark/X_full.npy",
         "models/benchmark/predictions_full.npy",
@@ -91,20 +102,12 @@ if __name__ == "__main__":
         "models/benchmark/dates_full.npy"
     )
 
-    # Optional: Feature-Namen
-    feature_names = [
-        "1","2","3","4","5","6","7","8","9"
-    ]
+    feature_names = [f"f{i+1}" for i in range(X.shape[1])]  # falls vorhanden, echte Namen nehmen
 
-    df_comparison = compare_segments(X, y_pred, y_true, dates, feature_names, threshold=0.2)
-    print(df_comparison.round(3))
+    df_comp = compare_segments(X, y_pred, y_true, dates, seq_length, feature_names, threshold=0.2)
+    df_comp.to_csv("dip_analysis_stats.csv")
+    print(df_comp.round(3))
 
-    scalers = []
-    X_scaled = np.zeros_like(X)
-    for i in range(X.shape[2]):
-        scaler = MinMaxScaler()
-        X_scaled[:, :, i] = scaler.fit_transform(X[:, :, i])
-        scalers.append(scaler)
 
 
 

@@ -5,29 +5,22 @@ import matplotlib.pyplot as plt
 from tensorflow import keras
 
 
-def get_all_timestamps(filepath="Data/SHA-nit.csv", interval="10min", valid_time_suffix="0:00"):
+def load_split_boundaries(model_path, split_info):
     """
-    Gibt alle Zeitstempel des Zielzeitraums zurück, z. B. für Vorhersageplots über den gesamten Zeitraum.
+    Lädt die Start- und Endzeitpunkte der Splits aus CSV-Datei.
 
-    :param filepath: Pfad zur CSV-Datei mit der Zielgröße.
-    :param interval: Zeitintervall für Resampling (Standard: "10min").
-    :param valid_time_suffix: Optionaler Zeitfilter, um z. B. nur Messwerte mit Uhrzeit „0:00“ zu behalten.
-    :return: pd.DatetimeIndex mit vollständigen Zeitstempeln.
+    :param split_info: Dateiname der CSV-Datei mit Spalten "set", "start", "end"
+    :return: dict mit 'train', 'val', 'test' jeweils als (start, end) Timestamp-Tuple
     """
-    start_date = "2015-04-28 11:00:00"
-    end_date = "2019-11-21 12:00:00"
+    df = pd.read_csv(os.path.join(model_path, split_info))
+    boundaries = {}
+    for split in ["train", "val", "test"]:
+        row = df[df["set"] == split].iloc[0]
+        start = pd.to_datetime(row["start"])
+        end = pd.to_datetime(row["end"])
+        boundaries[split] = (start, end)
+    return boundaries
 
-    df = pd.read_csv(filepath)
-    if valid_time_suffix:
-        df = df[df["date"].str.endswith(valid_time_suffix)]
-
-    df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d %H:%M:%S")
-    df = df[(df["date"] >= pd.to_datetime(start_date)) & (df["date"] <= pd.to_datetime(end_date))]
-    df.set_index("date", inplace=True)
-    df = df.resample(interval).mean()
-    df = df.interpolate()
-
-    return df.index
 
 
 def load_model_and_predictions(model_folder, keras_file):
@@ -41,35 +34,48 @@ def load_model_and_predictions(model_folder, keras_file):
     model_path = os.path.join(model_folder, keras_file)
     model_name = os.path.splitext(keras_file)[0]
 
-    model = keras.models.load_model(model_path)
-
     predictions = np.load(os.path.join(model_folder, "predictions_full.npy"))
     y_true = np.load(os.path.join(model_folder, "y_true_full.npy"))
     timestamps = np.load(os.path.join(model_folder, "dates_full.npy"), allow_pickle=True)
-    timestamps = pd.to_datetime(timestamps)
+
+    # Bytes zu Strings umwandeln, falls nötig
+    timestamps_str = [ts.decode('utf-8') if isinstance(ts, bytes) else ts for ts in timestamps]
+    timestamps = pd.to_datetime(timestamps_str)
 
     return model_name, predictions, y_true, timestamps
 
 
-def plot_predictions_full_timeline(model_folder, keras_file, output_path, szenario, seq_length=18):
+
+def plot_predictions_full_timeline(model_folder, keras_file, output_path, szenario, boundaries):
     model_name, y_pred, y_true, full_timestamps = load_model_and_predictions(model_folder, keras_file)
 
-    # Zeitachse anpassen
-    diff = len(full_timestamps) - len(y_pred)
     if len(full_timestamps) != len(y_pred):
         raise ValueError(f"Längen passen nicht: {len(full_timestamps)} vs. {len(y_pred)}")
+
+    # Split-Grenzen aus CSV laden
+    val_start, _ = boundaries["val"]
+    test_start, _ = boundaries["test"]
 
     fig, ax = plt.subplots(figsize=(15, 4))
     ax.plot(full_timestamps, y_true, label='Messwert', color="black", linewidth=1.2)
     ax.plot(full_timestamps, y_pred, label='Vorhersage', color="red", linewidth=1.2, linestyle='--')
+
+    # Vertikale Linien mit exakten Zeitpunkten
+    if full_timestamps.min() < val_start < full_timestamps.max():
+        ax.axvline(val_start, color='green', linestyle='--', linewidth=1.5)
+    if full_timestamps.min() < test_start < full_timestamps.max():
+        ax.axvline(test_start, color='blue', linestyle='--', linewidth=1.5)
+
     ax.set_title(f"Modellvorhersage: {model_name}")
     ax.set_xlabel("Zeit")
     ax.set_ylabel("Nitrat [mg/L]")
     ax.legend()
     plt.tight_layout()
 
+    os.makedirs(output_path, exist_ok=True)
     fig.savefig(os.path.join(output_path, f"{szenario}_zeitreihe.png"))
     plt.close(fig)
+
 
 
 
@@ -101,23 +107,26 @@ def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scat
         model_path = os.path.join(base_model_dir, szenario)
         if szenario == "benchmark":
             keras_file = "LSTM_SHA_benchmark_nit_001.keras"
+            split_info = "LSTM_SHA_benchmark_nit_001_split_boundaries.csv"
         elif szenario == "low_input":
             keras_file = "LSTM_SHA_low_input_nit_001.keras"
+            split_info = "LSTM_SHA_low_input_nit_001_split_boundaries.csv"
         elif szenario == "not_lyser":
             keras_file = "LSTM_SHA_not_lyser_nit_001.keras"
+            split_info = "LSTM_SHA_not_lyser_nit_001_split_boundaries.csv"
         elif szenario == "not_nit":
             keras_file = "LSTM_SHA_not_nit_nit_001.keras"
-        elif szenario == "test_code":
-            keras_file = "LSTM_SHA_test_code_nit_001.keras"
+            split_info = "LSTM_SHA_not_nit_nit_001_split_boundaries.csv"
         else:
             raise ValueError(f"Unbekannter Modellordner: {szenario}")
 
-        plot_predictions_full_timeline(model_path, keras_file, output_zeitreihe_dir, szenario)
+        boundaries = load_split_boundaries(model_path, split_info)
+        plot_predictions_full_timeline(model_path, keras_file, output_zeitreihe_dir, szenario, boundaries)
         plot_scatter(model_path, output_scatter_dir, keras_file, szenario)
 
 
 def main():
-    szenarien = ["benchmark", "low_input", "not_lyser", "not_nit", "test_code"]
+    szenarien = ["benchmark", "low_input", "not_lyser", "not_nit"]
     base_model_dir = "models"
     output_zeitreihe_dir = "figures/zeitreihe"
     output_scatter_dir = "figures/scatter"
@@ -131,8 +140,9 @@ def main():
     )
 
 
-#if __name__ == "__main__":
-#    main()
+if __name__ == "__main__":
+    main()
+
 def test_single_model():
     szenarien = ["benchmark"]
     base_model_dir = "models"
@@ -148,5 +158,5 @@ def test_single_model():
     )
 
 
-if __name__ == "__main__":
-    test_single_model()
+#if __name__ == "__main__":
+#    test_single_model()

@@ -9,7 +9,7 @@ from benchmark_szenario_sha import get_benchmark_config
 from low_input_szenario_sha import get_low_input_config
 from not_nit_szenario_sha import get_not_nit_config
 from test_code_szenario import get_test_code_config
-from evaluate_model import calculate_all_metrics
+from evaluate_model import calculate_all_metrics, save_split_boundaries
 from not_lyser import get_not_lyser_config
 
 
@@ -122,6 +122,11 @@ def run(scenario):
         }
     )
 
+    split_save = os.path.join(output_dir, f"{model_name}_split_boundaries.csv")
+
+    # Speichern der Split-Zeiträume
+    save_split_boundaries(train_df, val_df, test_df, save_path=split_save)
+
     if full_ds is not None and timestamps_full is not None and x_full is not None and scaler_y is not None:
         from evaluate_model import evaluate_and_store_full_predictions
         evaluate_and_store_full_predictions(
@@ -139,4 +144,4 @@ def run(scenario):
     }
 
 if __name__ == "__main__":
-    run(scenario= "benchmark")
+    run(scenario= "low_input")

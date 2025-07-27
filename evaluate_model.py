@@ -3,6 +3,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
 import tensorflow as tf
 import pickle
+import pandas as pd
 
 
 def calculate_all_metrics(model, test_ds):
@@ -62,6 +63,23 @@ def calculate_all_metrics(model, test_ds):
         "MBE": mbe,
         "KGE": kge
     }
+
+def save_split_boundaries(train_df, val_df, test_df, save_path):
+    """
+    Speichert Start- und Endzeitpunkte von Trainings-, Validierungs- und Testset.
+
+    :param train_df: DataFrame mit Trainingsdaten
+    :param val_df: Validierungsdaten
+    :param test_df: Testdaten
+    :param save_path: Pfad zur Zieldatei (CSV)
+    """
+    split_info = {
+        "set": ["train", "val", "test"],
+        "start": [train_df.index[0], val_df.index[0], test_df.index[0]],
+        "end": [train_df.index[-1], val_df.index[-1], test_df.index[-1]]
+    }
+    pd.DataFrame(split_info).to_csv(save_path, index=False)
+    print(f"Zeitbereiche der Splits gespeichert unter: {save_path}")
 
 
 def evaluate_and_store_full_predictions(model, full_ds, timestamps, output_dir,
