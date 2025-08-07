@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 from tensorflow import keras
 
 
@@ -87,9 +88,11 @@ def plot_scatter(model_folder, output_folder, keras_file, szenario):
     plt.scatter(y_true, predictions, color="dodgerblue", edgecolor='k', alpha=0.75)
     plt.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], 'k--', lw=2)
 
-    plt.xlabel("Gemessen (mg/l)", fontsize=12)
-    plt.ylabel("Vorhergesagt (mg/l)", fontsize=12)
-    plt.title(szenario, fontsize=14)
+    plt.xlabel("Gemessen (mg/l)", fontsize=14)
+    plt.ylabel("Vorhergesagt (mg/l)", fontsize=14)
+    plt.title(szenario, fontsize=20)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
     plt.grid(True)
     plt.axis("equal")
     plt.tight_layout()
@@ -97,8 +100,33 @@ def plot_scatter(model_folder, output_folder, keras_file, szenario):
     os.makedirs(output_folder, exist_ok=True)
 
     output_path = os.path.join(output_folder, f"{szenario}_scatter.png")
-    plt.savefig(output_path)
+    plt.savefig(output_path, dpi=300)
     plt.close()
+
+def combine_scatter_plots(image_names, input_folder, output_path, dpi=300):
+    """
+    Kombiniert vier Scatterplots (ohne zusätzliche Labels) in einem 2x2-Raster
+    für Word-Dokumente mit maximal 16cm Breite.
+    """
+    # Zielgröße in cm → Umrechnung in Zoll
+    target_width_cm = 16
+    target_height_cm = 10
+    cm_to_inch = 1 / 2.54
+    fig_width_in = target_width_cm * cm_to_inch
+    fig_height_in = target_height_cm * cm_to_inch
+
+    fig, axes = plt.subplots(2, 2, figsize=(fig_width_in, fig_height_in), dpi=dpi)
+
+    for ax, img_name in zip(axes.flat, image_names):
+        img_path = os.path.join(input_folder, img_name)
+        img = mpimg.imread(img_path)
+        ax.imshow(img)
+        ax.axis('off')
+
+    plt.subplots_adjust(wspace=0.02, hspace=0.02)
+    plt.savefig(output_path, dpi=dpi, bbox_inches='tight')
+    plt.close()
+    print(f"Kombinierte Scattergrafik gespeichert unter: {output_path}")
 
 
 
@@ -137,6 +165,18 @@ def main():
         base_model_dir,
         output_zeitreihe_dir,
         output_scatter_dir
+    )
+    image_list = [
+        "benchmark_scatter.png",
+        "not_nit_scatter.png",
+        "not_lyser_scatter.png",
+        "low_input_scatter.png"
+    ]
+
+    combine_scatter_plots(
+        image_names=image_list,
+        input_folder="figures/scatter",
+        output_path="figures/combined_scatter_2x2.png"
     )
 
 
