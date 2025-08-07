@@ -40,6 +40,14 @@ def calculate_all_metrics(model, test_ds):
     mae = mean_absolute_error(y_true, y_pred)
     r2 = r2_score(y_true, y_pred)
 
+    #R-Square
+    y_mean = np.mean(y_true)
+    y_pred_mean = np.mean(y_pred)
+
+    numerator = np.sum((y_true - y_mean) * (y_pred - y_pred_mean))
+    denominator = np.sum((y_true - y_mean) ** 2 * (y_pred - y_pred_mean) ** 2)
+    r2 = numerator/denominator
+
     # Nash-Sutcliffe Efficiency
     sse = np.sum((y_true - y_pred) ** 2)
     var = np.sum((y_true - np.mean(y_true)) ** 2)
