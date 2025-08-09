@@ -1,12 +1,13 @@
 import os
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.linear_model import LinearRegression
 import numpy as np
 import tensorflow as tf
 import pickle
 import pandas as pd
 
 
-def calculate_all_metrics(model, test_ds):
+def calculate_all_metrics(model, test_ds, scaler_y):
     """
     Bewertet ein trainiertes Modell auf einem Test-Datensatz und berechnet verschiedene Regressionsmetriken.
 
@@ -39,13 +40,11 @@ def calculate_all_metrics(model, test_ds):
     rmse = np.sqrt(mse)
     mae = mean_absolute_error(y_true, y_pred)
 
-    #R-Square
-    y_mean = np.mean(y_true)
-    y_pred_mean = np.mean(y_pred)
-
-    numerator = np.sum((y_true - y_mean) * (y_pred - y_pred_mean))
-    denominator = np.sum((y_true - y_mean) ** 2 * (y_pred - y_pred_mean) ** 2)
-    r2 = numerator/denominator
+    lin_model = LinearRegression().fit(y_pred.reshape(-1, 1), y_true)
+    y_reg = lin_model.predict(y_pred.reshape(-1, 1))
+    ss_res = np.sum((y_true - y_reg) ** 2)
+    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+    r2 = 1 - ss_res / ss_tot
 
     # Nash-Sutcliffe Efficiency
     sse = np.sum((y_true - y_pred) ** 2)
