@@ -260,20 +260,23 @@ def create_final_ds(station, stations, measurements, target_feature,
     timestamps_full = df.index.to_numpy()
     y_full = np.array(df[target_feature], ndmin=2).T
 
-    # Feature-Scaler fitten und Eingabematrix skalieren
-    scaler = MinMaxScaler()
-    x_full = scaler.transform(df.drop(columns=[target_feature]))
-    x_full = np.clip(x_full, 0, 1)
-
     # Zielvariable separat skalieren
     scaler_y = MinMaxScaler()
     scaler_y.fit(y_full)
 
+    # Split in Trainings-, Validierungs-, Test-Set
+    train_df, val_df, test_df = split_dataset(df, target_feature)
+
+    # Feature-Scaler fitten und Eingabematrix skalieren
+    scaler = MinMaxScaler()
+    scaler.fit(train_df.drop(columns=[target_feature]))
+    x_full = scaler.transform(df.drop(columns=[target_feature]))
+    x_full = np.clip(x_full, 0, 1)
+
     # Full-Datensatz (für spätere Analyse/Vorhersagen)
     full_ds = create_full_dataset_with_timestamps(x_full, y_full, timestamps_full, seq_length, batch_size)
 
-    # Split in Trainings-, Validierungs-, Test-Set
-    train_df, val_df, test_df = split_dataset(df, target_feature)
+    # x und y für Training vorbereiten
     x_train, x_val, x_test, _ = scale_features(train_df, val_df, test_df, target_feature)
     y_train, y_val, y_test = prepare_targets(train_df, val_df, test_df, target_feature)
 
