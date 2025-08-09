@@ -256,6 +256,15 @@ def create_final_ds(station, stations, measurements, target_feature,
     df.to_pickle(f"{station}-dataframe.pkl")
     df.drop(columns=df.columns[df.columns.duplicated()], inplace=True)
 
+    # Split in Trainings-, Validierungs-, Test-Set
+    train_df, val_df, test_df = split_dataset(df, target_feature)
+    # x und y für Training vorbereiten
+    x_train, x_val, x_test, scaler = scale_features(train_df, val_df, test_df, target_feature)
+    y_train, y_val, y_test = prepare_targets(train_df, val_df, test_df, target_feature)
+
+    train_ds, val_ds, test_ds = make_tf_datasets(x_train, x_val, x_test,
+                                                 y_train, y_val, y_test,
+                                                 seq_length, batch_size)
     # Zeitstempel und Zielvariable extrahieren
     timestamps_full = df.index.to_numpy()
     y_full = np.array(df[target_feature], ndmin=2).T
@@ -264,25 +273,13 @@ def create_final_ds(station, stations, measurements, target_feature,
     scaler_y = MinMaxScaler()
     scaler_y.fit(y_full)
 
-    # Split in Trainings-, Validierungs-, Test-Set
-    train_df, val_df, test_df = split_dataset(df, target_feature)
-
     # Feature-Scaler fitten und Eingabematrix skalieren
-    scaler = MinMaxScaler()
-    scaler.fit(train_df.drop(columns=[target_feature]))
     x_full = scaler.transform(df.drop(columns=[target_feature]))
     x_full = np.clip(x_full, 0, 1)
 
+
     # Full-Datensatz (für spätere Analyse/Vorhersagen)
     full_ds = create_full_dataset_with_timestamps(x_full, y_full, timestamps_full, seq_length, batch_size)
-
-    # x und y für Training vorbereiten
-    x_train, x_val, x_test, _ = scale_features(train_df, val_df, test_df, target_feature)
-    y_train, y_val, y_test = prepare_targets(train_df, val_df, test_df, target_feature)
-
-    train_ds, val_ds, test_ds = make_tf_datasets(x_train, x_val, x_test,
-                                                 y_train, y_val, y_test,
-                                                 seq_length, batch_size)
 
     return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
 
