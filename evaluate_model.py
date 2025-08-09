@@ -38,7 +38,6 @@ def calculate_all_metrics(model, test_ds):
     mse = mean_squared_error(y_true, y_pred)
     rmse = np.sqrt(mse)
     mae = mean_absolute_error(y_true, y_pred)
-    r2 = r2_score(y_true, y_pred)
 
     #R-Square
     y_mean = np.mean(y_true)
