@@ -7,7 +7,7 @@ import pickle
 import pandas as pd
 
 
-def calculate_all_metrics(model, test_ds, scaler_y):
+def calculate_all_metrics(model, test_ds):
     """
     Bewertet ein trainiertes Modell auf einem Test-Datensatz und berechnet verschiedene Regressionsmetriken.
 
