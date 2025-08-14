@@ -67,9 +67,9 @@ def plot_predictions_full_timeline(model_folder, keras_file, output_path, szenar
     if full_timestamps.min() < test_start < full_timestamps.max():
         ax.axvline(test_start, color='blue', linestyle='--', linewidth=1.5)
 
-    ax.set_title(szenario, fontsize = 14)
-    ax.set_xlabel("Zeit", fontsize = 12)
-    ax.set_ylabel("Nitrat [mg/L]", fontsize = 12)
+    ax.set_title(szenario, fontsize = 18)
+    ax.set_xlabel("Zeit", fontsize = 14)
+    ax.set_ylabel("Nitrat [mg/L]", fontsize = 14)
     ax.legend(fontsize = 10)
     plt.tight_layout()
 
