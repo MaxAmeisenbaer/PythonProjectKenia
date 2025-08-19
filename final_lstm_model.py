@@ -14,6 +14,14 @@ from not_lyser_szenario_sha import get_not_lyser_config
 
 
 def save_model_metadata(model_name, params, output_path="model_log.xlsx"):
+    """
+    Speichert Metadaten eines trainierten Modells in einer Excel-Datei.
+    Falls die Datei existiert, wird ein neuer Eintrag hinzugefügt.
+
+    :param model_name: Name des gespeicherten Modells
+    :param params: Dictionary mit Modellparametern und Metriken
+    :param output_path: Pfad zur Excel-Logdatei (default="model_log.xlsx")
+    """
     metadata = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "model_name": model_name,
@@ -28,7 +36,17 @@ def save_model_metadata(model_name, params, output_path="model_log.xlsx"):
 
     df.to_excel(output_path, index=False)
 
+
 def generate_model_name(config_name, target_feature, output_path="model_log.xlsx"):
+    """
+    Generiert einen eindeutigen Modellnamen basierend auf Konfiguration und Zielvariable.
+    Die Nummerierung wird automatisch fortgeführt, falls bereits Modelle existieren.
+
+    :param config_name: Name der Konfiguration (z. B. "benchmark")
+    :param target_feature: Zielgröße im Format "STATION_FEATURE" (z. B. "SHA_NO3")
+    :param output_path: Pfad zur Excel-Logdatei für bestehende Modelle
+    :return: String mit neuem Modellnamen
+    """
     station, target = target_feature.split("_")
     prefix = f"LSTM_{station}_{config_name}_{target}"
 
@@ -44,7 +62,17 @@ def generate_model_name(config_name, target_feature, output_path="model_log.xlsx
     next_number = max(existing_numbers, default=0) + 1
     return f"{prefix}_{next_number:03d}"
 
+
 def prepare_data(config, target_feature, stations, measurements):
+    """
+    Bereitet die Datensätze für Training, Validierung und Test vor.
+
+    :param config: Dictionary mit Modellkonfiguration (Batchgröße, Sequenzlänge etc.)
+    :param target_feature: Zielvariable (z. B. "SHA_NO3")
+    :param stations: Liste der verwendeten Stationen
+    :param measurements: Liste der Messgrößen
+    :return: train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
+    """
     train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y = create_final_ds(
         station="SHA",
         stations=stations,
@@ -55,7 +83,16 @@ def prepare_data(config, target_feature, stations, measurements):
     )
     return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
 
+
 def build_and_train_model(train_ds, val_ds, config):
+    """
+    Erstellt ein LSTM-Modell und trainiert es mit den bereitgestellten Datensätzen.
+
+    :param train_ds: Trainings-Dataset
+    :param val_ds: Validierungs-Dataset
+    :param config: Dictionary mit Modellparametern (LSTM-Nodes, Dense-Nodes, Dropout, etc.)
+    :return: trainiertes Modell, Trainingsverlauf (History-Objekt)
+    """
     model, early_stopping = create_model(
         nodes_lstm=config["nodes_lstm"],
         nodes_dense=config["nodes_dense"],
@@ -74,7 +111,20 @@ def build_and_train_model(train_ds, val_ds, config):
     )
     return model, history
 
+
 def run(scenario):
+    """
+    Führt den gesamten Modelltrainings-Workflow für ein bestimmtes Szenario aus:
+    - Laden der Szenario-Konfiguration
+    - Datenvorbereitung
+    - Modelltraining
+    - Berechnung der Metriken
+    - Speichern von Modell, Log-Eintrag und Split-Grenzen
+    - Evaluation auf vollem Datensatz
+
+    :param scenario: Name des Szenarios ("benchmark", "low_input", "not_nit", "not_lyser", "test_code")
+    :return: Dictionary mit Modellname und berechneten Metriken
+    """
     if scenario == "benchmark":
         stations, measurements, target_feature, config_name = get_benchmark_config()
     elif scenario == "low_input":
@@ -113,7 +163,7 @@ def run(scenario):
 
     early_stopped = len(history.history["loss"])
 
-    save_model_metadata( #train_loss und val_loss werden nicht mehr abgespeichert
+    save_model_metadata(
         model_name=model_name,
         params={
             **model_config,
@@ -138,10 +188,11 @@ def run(scenario):
             scaler_y=scaler_y
         )
 
-    return { #train_loss und val_loss werden nicht mehr wiedergegeben
+    return {
         "model_name": model_name,
         "metrics": metrics_result
     }
 
+
 if __name__ == "__main__":
-    run(scenario= "low_input")
+    run(scenario="low_input")
