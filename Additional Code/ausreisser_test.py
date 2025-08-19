@@ -38,7 +38,7 @@ def show_outlier_context(series, outlier_indices, window_size=5):
 
     return context_data
 
-df = pd.read_csv("Data/SHA-nit.csv")
+df = pd.read_csv("../Data/SHA-nit.csv")
 
 
 

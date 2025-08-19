@@ -5,7 +5,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from benchmark_szenario_sha import get_benchmark_config
 from low_input_szenario_sha import get_low_input_config
-from not_lyser import get_not_lyser_config
+from not_lyser_szenario_sha import get_not_lyser_config
 from not_nit_szenario_sha import get_not_nit_config
 from data_prepro import load_data
 

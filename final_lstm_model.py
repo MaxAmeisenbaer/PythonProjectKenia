@@ -10,7 +10,7 @@ from low_input_szenario_sha import get_low_input_config
 from not_nit_szenario_sha import get_not_nit_config
 from test_code_szenario import get_test_code_config
 from evaluate_model import calculate_all_metrics, save_split_boundaries
-from not_lyser import get_not_lyser_config
+from not_lyser_szenario_sha import get_not_lyser_config
 
 
 def save_model_metadata(model_name, params, output_path="model_log.xlsx"):
