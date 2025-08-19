@@ -48,6 +48,16 @@ def load_model_and_predictions(model_folder, keras_file):
 
 
 def plot_predictions_full_timeline(model_folder, keras_file, output_path, szenario, boundaries):
+    """
+    Erstellt eine Zeitreihengrafik für Messwerte und Vorhersagen über den gesamten Zeitraum.
+    Die Split-Grenzen (Validierung/Test) werden als vertikale Linien markiert.
+
+    :param model_folder: Pfad zum Modellordner
+    :param keras_file: Name der .keras-Datei
+    :param output_path: Pfad zum Ausgabeverzeichnis
+    :param szenario: Name des Szenarios (z.B. "benchmark")
+    :param boundaries: Dictionary mit Split-Grenzen (train/val/test)
+    """
     model_name, y_pred, y_true, full_timestamps = load_model_and_predictions(model_folder, keras_file)
 
     if len(full_timestamps) != len(y_pred):
@@ -79,9 +89,15 @@ def plot_predictions_full_timeline(model_folder, keras_file, output_path, szenar
 
 
 
-
-
 def plot_scatter(model_folder, output_folder, keras_file, szenario):
+    """
+    Erstellt ein Scatterplot-Diagramm (gemessen vs. vorhergesagt) für ein Modell.
+
+    :param model_folder: Pfad zum Modellordner
+    :param output_folder: Pfad zum Ausgabeverzeichnis
+    :param keras_file: Name der .keras-Datei
+    :param szenario: Name des Szenarios (z.B. "benchmark")
+    """
     model_name, predictions, y_true, _ = load_model_and_predictions(model_folder, keras_file)
 
     plt.figure(figsize=(6, 6))
@@ -103,10 +119,16 @@ def plot_scatter(model_folder, output_folder, keras_file, szenario):
     plt.savefig(output_path, dpi=300)
     plt.close()
 
+
 def combine_scatter_plots(image_names, input_folder, output_path, dpi=300):
     """
-    Kombiniert vier Scatterplots (ohne zusätzliche Labels) in einem 2x2-Raster
-    für Word-Dokumente mit maximal 16cm Breite.
+    Kombiniert mehrere Scatterplots zu einem 2x2-Rasterbild,
+    ohne zusätzliche Beschriftungen (für kompakte Darstellung).
+
+    :param image_names: Liste der Bilddateinamen der Scatterplots
+    :param input_folder: Pfad zum Ordner mit den Scatterplot-Bildern
+    :param output_path: Pfad für das kombinierte Ausgabebild
+    :param dpi: Auflösung des Ausgabebildes (default=300)
     """
     # Zielgröße in cm → Umrechnung in Zoll
     target_width_cm = 16
@@ -131,6 +153,14 @@ def combine_scatter_plots(image_names, input_folder, output_path, dpi=300):
 
 
 def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir):
+    """
+    Führt die Erstellung von Zeitreihen- und Scatterplots für alle angegebenen Szenarien durch.
+
+    :param szenarien: Liste der Szenarien (z.B. ["benchmark", "low_input", ...])
+    :param base_model_dir: Basisordner, in dem die Modelle gespeichert sind
+    :param output_zeitreihe_dir: Zielordner für Zeitreihengrafiken
+    :param output_scatter_dir: Zielordner für Scatterplots
+    """
     for szenario in szenarien:
         model_path = os.path.join(base_model_dir, szenario)
         if szenario == "benchmark":
@@ -154,11 +184,14 @@ def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scat
 
 
 def main():
+    """
+    Hauptfunktion: erstellt Zeitreihen- und Scatterplots für alle Szenarien
+    und kombiniert die Scatterplots in einem 2x2-Gesamtbild.
+    """
     szenarien = ["benchmark", "low_input", "not_lyser", "not_nit"]
     base_model_dir = "models"
     output_zeitreihe_dir = "figures/zeitreihe"
     output_scatter_dir = "figures/scatter"
-
 
     plot_all_models(
         szenarien,
@@ -183,12 +216,15 @@ def main():
 if __name__ == "__main__":
     main()
 
+
 def test_single_model():
+    """
+    Testfunktion: führt die Plot-Erstellung nur für das Benchmark-Szenario aus.
+    """
     szenarien = ["benchmark"]
     base_model_dir = "models"
     output_zeitreihe_dir = "figures/zeitreihe"
     output_scatter_dir = "figures/scatter"
-
 
     plot_all_models(
         szenarien,
