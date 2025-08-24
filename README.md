@@ -47,4 +47,4 @@ Ziele des Projekts:
 
 - Projekt von Maximilian Mäder
 - basierend auf Arbeit von Henri Breuer
-- Arbeit mit Daten erhoben von Dr. Suzanne Jacobs
+- Daten erhoben von Dr. Suzanne Jacobs
