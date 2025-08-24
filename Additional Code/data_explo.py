@@ -95,7 +95,7 @@ def gantt_chart():
     Erstellt ein Gantt-Diagramm, das die Zeiträume (Start bis Ende)
     aller CSV-Dateien im 'Data'-Verzeichnis visualisiert.
     """
-    csv_files = glob.glob(os.path.join("Data", "*.csv"))
+    csv_files = glob.glob(os.path.join("../Data", "*.csv"))
     data_list = []
 
     for file in csv_files:
