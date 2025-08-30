@@ -47,9 +47,9 @@ for label, pos in zip(labels, box_positions):
 
 # Draw arrows + labels
 draw_zigzag_arrow(ax, (0.5, 3.5), (2, 2.5), "Alle Daten", label_offset=(-0.3, +0.3), fontsize=11)
-draw_zigzag_arrow(ax, (3.5, 2.5), (5, 3.5), "Nitrat-Daten von\nNF & TTP entfernt", label_offset=(-0.05, -0.25), fontsize=11)
-draw_zigzag_arrow(ax, (6.5, 3.5), (8, 2.5), "Lyser-Geräte entfernt\n(elc, nit, tcd, tsp, doc, toc, tur)", label_offset=(-0.21, +0.3), fontsize=11)
-draw_zigzag_arrow(ax, (9.5, 2.5), (11, 3.5), "GS3 Sensor entfernt\n(ec15, stemp15, evc15)", label_offset=(-0.05, -0.25), fontsize=11)
+draw_zigzag_arrow(ax, (3.5, 2.5), (5, 3.5), "Nitrat-Daten (nit) von\nNF & TTP entfernt", label_offset=(-0.05, -0.25), fontsize=11)
+draw_zigzag_arrow(ax, (6.5, 3.5), (8, 2.5), "Daten der ::lyser-Geräte entfernt\n(elc, nit, tcd, tsp, doc, toc, tur)", label_offset=(-0.31, +0.3), fontsize=11)
+draw_zigzag_arrow(ax, (9.5, 2.5), (11, 3.5), "Daten von GS3 Sensor entfernt\n(ec15, stemp15, evc15)", label_offset=(-0.05, -0.25), fontsize=11)
 
 # Auto-Achsenbereich passend machen
 ax.relim()
