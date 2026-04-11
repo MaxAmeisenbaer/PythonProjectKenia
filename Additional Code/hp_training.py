@@ -7,7 +7,7 @@ from benchmark_szenario_sha import get_benchmark_config
 
 
 # Szenario laden
-stations, measurements, target_feature, config_name = get_benchmark_config()  # ← config_name neu
+stations, measurements, target_feature, config_name = get_benchmark_config()
 
 
 def objective(trial):
