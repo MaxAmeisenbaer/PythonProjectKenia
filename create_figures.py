@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-from tensorflow import keras
 
 
 def load_split_boundaries(model_path, split_info):
@@ -24,17 +23,13 @@ def load_split_boundaries(model_path, split_info):
 
 
 
-def load_model_and_predictions(model_folder, keras_file):
+def load_predictions(model_folder):
     """
     Lädt das Modell und die konsolidierten Vorhersage- und Zeitreihendateien aus dem Modellordner.
 
     :param model_folder: Pfad zum Modellordner (z.B. 'models/benchmark')
-    :param keras_file: Name der .keras-Datei im Modellordner
-    :return: model_name, predictions_full, y_true_full, timestamps_full
+    :return: predictions_full, y_true_full, timestamps_full
     """
-    model_path = os.path.join(model_folder, keras_file)
-    model_name = os.path.splitext(keras_file)[0]
-
     predictions = np.load(os.path.join(model_folder, "predictions_full.npy"))
     y_true = np.load(os.path.join(model_folder, "y_true_full.npy"))
     timestamps = np.load(os.path.join(model_folder, "dates_full.npy"), allow_pickle=True)
@@ -43,22 +38,21 @@ def load_model_and_predictions(model_folder, keras_file):
     timestamps_str = [ts.decode('utf-8') if isinstance(ts, bytes) else ts for ts in timestamps]
     timestamps = pd.to_datetime(timestamps_str)
 
-    return model_name, predictions, y_true, timestamps
+    return predictions, y_true, timestamps
 
 
 
-def plot_predictions_full_timeline(model_folder, keras_file, output_path, szenario, boundaries):
+def plot_predictions_full_timeline(model_folder, output_path, szenario, boundaries):
     """
     Erstellt eine Zeitreihengrafik für Messwerte und Vorhersagen über den gesamten Zeitraum.
     Die Split-Grenzen (Validierung/Test) werden als vertikale Linien markiert.
 
     :param model_folder: Pfad zum Modellordner
-    :param keras_file: Name der .keras-Datei
     :param output_path: Pfad zum Ausgabeverzeichnis
     :param szenario: Name des Szenarios (z.B. "benchmark")
     :param boundaries: Dictionary mit Split-Grenzen (train/val/test)
     """
-    model_name, y_pred, y_true, full_timestamps = load_model_and_predictions(model_folder, keras_file)
+    y_pred, y_true, full_timestamps = load_model_and_predictions(model_folder, keras_file)
 
     if len(full_timestamps) != len(y_pred):
         raise ValueError(f"Längen passen nicht: {len(full_timestamps)} vs. {len(y_pred)}")
@@ -89,16 +83,15 @@ def plot_predictions_full_timeline(model_folder, keras_file, output_path, szenar
 
 
 
-def plot_scatter(model_folder, output_folder, keras_file, szenario):
+def plot_scatter(model_folder, output_folder, szenario):
     """
     Erstellt ein Scatterplot-Diagramm (gemessen vs. vorhergesagt) für ein Modell.
 
     :param model_folder: Pfad zum Modellordner
     :param output_folder: Pfad zum Ausgabeverzeichnis
-    :param keras_file: Name der .keras-Datei
     :param szenario: Name des Szenarios (z.B. "benchmark")
     """
-    model_name, predictions, y_true, _ = load_model_and_predictions(model_folder, keras_file)
+    predictions, y_true, _ = load_predictions(model_folder)
 
     plt.figure(figsize=(6, 6))
     plt.scatter(y_true, predictions, color="dodgerblue", edgecolor='k', alpha=0.75)
@@ -164,23 +157,19 @@ def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scat
     for szenario in szenarien:
         model_path = os.path.join(base_model_dir, szenario)
         if szenario == "benchmark":
-            keras_file = "LSTM_SHA_benchmark_nit_001.keras"
             split_info = "LSTM_SHA_benchmark_nit_001_split_boundaries.csv"
         elif szenario == "low_input":
-            keras_file = "LSTM_SHA_low_input_nit_001.keras"
             split_info = "LSTM_SHA_low_input_nit_001_split_boundaries.csv"
         elif szenario == "not_lyser":
-            keras_file = "LSTM_SHA_not_lyser_nit_001.keras"
             split_info = "LSTM_SHA_not_lyser_nit_001_split_boundaries.csv"
         elif szenario == "not_nit":
-            keras_file = "LSTM_SHA_not_nit_nit_001.keras"
             split_info = "LSTM_SHA_not_nit_nit_001_split_boundaries.csv"
         else:
             raise ValueError(f"Unbekannter Modellordner: {szenario}")
 
         boundaries = load_split_boundaries(model_path, split_info)
-        plot_predictions_full_timeline(model_path, keras_file, output_zeitreihe_dir, szenario, boundaries)
-        plot_scatter(model_path, output_scatter_dir, keras_file, szenario)
+        plot_predictions_full_timeline(model_path, pt_file, output_zeitreihe_dir, szenario, boundaries)
+        plot_scatter(model_path, output_scatter_dir, pt_file, szenario)
 
 
 def main():
@@ -193,12 +182,9 @@ def main():
     output_zeitreihe_dir = "figures/zeitreihe"
     output_scatter_dir = "figures/scatter"
 
-    plot_all_models(
-        szenarien,
-        base_model_dir,
-        output_zeitreihe_dir,
-        output_scatter_dir
-    )
+
+    plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir)
+
     image_list = [
         "benchmark_scatter.png",
         "not_nit_scatter.png",
@@ -226,12 +212,8 @@ def test_single_model():
     output_zeitreihe_dir = "figures/zeitreihe"
     output_scatter_dir = "figures/scatter"
 
-    plot_all_models(
-        szenarien,
-        base_model_dir,
-        output_zeitreihe_dir,
-        output_scatter_dir
-    )
+
+    plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir)
 
 
 #if __name__ == "__main__":
