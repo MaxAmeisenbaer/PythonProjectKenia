@@ -1,221 +1,202 @@
-import tensorflow as tf
+import torch
+import torch.nn as nn
+import torch.optim as optim
 import numpy as np
 
 
-class NSEMetric(tf.keras.metrics.Metric):
+def compute_nse(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
     """
-    Implementiert die Nash-Sutcliffe-Effizienz (NSE) als Keras-Metrik.
+    Berechnet die Nash-Sutcliffe-Effizienz (NSE).
 
     NSE = 1 - (SSE / Var(y_true))
+    - Werte nahe 1: hohe Modellgüte
+    - Werte <= 0: Mittelwert wäre besser als Modell
 
-    - Werte nahe 1 zeigen eine hohe Modellgüte.
-    - Werte <= 0 bedeuten, dass der Mittelwert von y_true besser wäre als das Modell.
-
-    Attributes:
-        sse: Summe der quadratischen Fehler.
-        y_true_sum: Summe der Zielwerte.
-        y_true_sq_sum: Summe der quadrierten Zielwerte.
-        count: Anzahl der Werte.
+    :param y_true: Beobachtete Werte
+    :param y_pred: Vorhergesagte Werte
+    :return: NSE-Wert als float
     """
+    y_true = y_true.reshape(-1)
+    y_pred = y_pred.reshape(-1)
 
-    def __init__(self, name="nse", **kwargs):
-        super().__init__(name=name, **kwargs)
-        self.sse = self.add_weight(name="sse", initializer="zeros")
-        self.y_true_sum = self.add_weight(name="y_true_sum", initializer="zeros")
-        self.y_true_sq_sum = self.add_weight(name="y_true_sq_sum", initializer="zeros")
-        self.count = self.add_weight(name="count", initializer="zeros")
+    sse = torch.sum((y_true - y_pred) ** 2)
+    var = torch.sum((y_true - torch.mean(y_true)) ** 2)
 
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        """
-        Aktualisiert die Zustände mit neuen Vorhersagen und Zielwerten.
-        """
-        y_true = tf.reshape(y_true, (-1,))
-        y_pred = tf.reshape(y_pred, (-1,))
-
-        self.sse.assign_add(tf.reduce_sum(tf.square(y_true - y_pred)))
-        self.y_true_sum.assign_add(tf.reduce_sum(y_true))
-        self.y_true_sq_sum.assign_add(tf.reduce_sum(tf.square(y_true)))
-        self.count.assign_add(tf.cast(tf.size(y_true), tf.float32))
-
-    def result(self):
-        """
-        Berechnet den NSE-Wert.
-        """
-        mean_y_true = self.y_true_sum / self.count
-        total_var = self.y_true_sq_sum - self.count * tf.square(mean_y_true)
-        return 1.0 - (self.sse / (total_var + tf.keras.backend.epsilon()))
-
-    def reset_states(self):
-        """
-        Setzt alle Zustände zurück.
-        """
-        self.sse.assign(0.0)
-        self.y_true_sum.assign(0.0)
-        self.y_true_sq_sum.assign(0.0)
-        self.count.assign(0.0)
+    return 1.0 - (sse / (var + 1e-8)).item()
 
 
-class MBEMetric(tf.keras.metrics.Metric):
+def compute_mbe(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
     """
-    Implementiert den Mean Bias Error (MBE) als Keras-Metrik.
+    Berechnet den Mean Bias Error (MBE).
 
-    - MBE > 0 bedeutet eine Überschätzung.
-    - MBE < 0 bedeutet eine Unterschätzung.
-    - MBE = 0 entspricht perfekter Vorhersage.
+    - MBE > 0: Überschätzung
+    - MBE < 0: Unterschätzung
+    - MBE = 0: Perfekte Vorhersage
 
-    Attributes:
-        total_error: Gesamtsumme der Abweichungen.
-        count: Anzahl der Werte.
+    :param y_true: Beobachtete Werte
+    :param y_pred: Vorhergesagte Werte
+    :return: MBE-Wert als float
     """
+    y_true = y_true.reshape(-1)
+    y_pred = y_pred.reshape(-1)
 
-    def __init__(self, name="mean_bias_error", **kwargs):
-        super(MBEMetric, self).__init__(name=name, **kwargs)
-        self.total_error = self.add_weight(name="total_error", initializer="zeros")
-        self.count = self.add_weight(name="count", initializer="zeros")
-
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        """
-        Aktualisiert die Zustände mit neuen Vorhersagen und Zielwerten.
-        """
-        error = y_pred - y_true
-        if sample_weight is not None:
-            error = tf.multiply(error, sample_weight)
-        self.total_error.assign_add(tf.reduce_sum(error))
-        self.count.assign_add(tf.cast(tf.size(y_true), tf.float32))
-
-    def result(self):
-        """
-        Berechnet den MBE-Wert.
-        """
-        return self.total_error / self.count
-
-    def reset_states(self):
-        """
-        Setzt alle Zustände zurück.
-        """
-        self.total_error.assign(0.0)
-        self.count.assign(0.0)
+    return (y_pred - y_true).mean().item()
 
 
-def kling_gupta_efficiency(sim, obs):
+def kling_gupta_efficiency(sim: np.ndarray, obs: np.ndarray) -> float:
     """
     Berechnet die Kling-Gupta-Effizienz (KGE).
 
-    Args:
-        sim (array-like): Modellvorhersagen.
-        obs (array-like): Beobachtungen.
-
-    Returns:
-        float: KGE-Wert (maximal 1, je näher an 1 desto besser).
+    :param sim: Modellvorhersagen
+    :param obs: Beobachtungen
+    :return: KGE-Wert (maximal 1, je näher an 1 desto besser)
     """
     sim = np.array(sim)
     obs = np.array(obs)
-    r = np.corrcoef(sim, obs)[0, 1]
+    r     = np.corrcoef(sim, obs)[0, 1]
     alpha = np.std(sim) / np.std(obs)
-    beta = np.mean(sim) / np.mean(obs)
+    beta  = np.mean(sim) / np.mean(obs)
     return 1 - np.sqrt((r - 1)**2 + (alpha - 1)**2 + (beta - 1)**2)
 
 
-class KGECallback(tf.keras.callbacks.Callback):
+class LSTMModel(nn.Module):
     """
-    Callback zur Berechnung und Ausgabe der Kling-Gupta-Effizienz (KGE)
-    am Ende jeder Epoche basierend auf dem Validierungsdatensatz.
-    """
+    LSTM-Modell mit optionaler Dense-Zwischenschicht.
 
-    def __init__(self, val_ds):
-        """
-        Args:
-            val_ds: Validierungs-Dataset.
-        """
+    :param n_features:   Anzahl der Eingabe-Features
+    :param nodes_lstm:   Anzahl der Neuronen in der LSTM-Schicht
+    :param nodes_dense:  Anzahl der Neuronen in der Dense-Schicht (0 = keine)
+    :param dropout:      Dropout-Rate
+    """
+    def __init__(self, n_features: int, nodes_lstm: int,
+                 nodes_dense: int, dropout: float):
         super().__init__()
-        self.val_ds = val_ds
 
-    def on_epoch_end(self, epoch, logs=None):
+        self.lstm    = nn.LSTM(
+            input_size=n_features,
+            hidden_size=nodes_lstm,
+            batch_first=True          # ← Input-Shape: [batch, seq_len, features]
+        )
+        self.dropout = nn.Dropout(dropout)
+        self.pool    = nn.AdaptiveMaxPool1d(1)  # gleich zu GlobalMaxPooling1D in Keras
+
+        if nodes_dense > 0:
+            self.dense = nn.Linear(nodes_lstm, nodes_dense)
+            self.relu  = nn.ReLU()
+        else:
+            self.dense = None
+
+        self.output_layer = nn.Linear(
+            nodes_dense if nodes_dense > 0 else nodes_lstm, 1
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Berechnet und gibt den KGE-Wert für die aktuelle Epoche aus.
+        Forward-Pass durch das Modell.
+
+        :param x: Eingabe-Tensor [batch_size, seq_length, n_features]
+        :return:  Ausgabe-Tensor [batch_size, 1]
         """
-        y_true = []
-        y_pred = []
+        out, _ = self.lstm(x)                    # [batch, seq_len, nodes_lstm]
+        out     = self.dropout(out)
+        out     = out.permute(0, 2, 1)           # [batch, nodes_lstm, seq_len]
+        out     = self.pool(out).squeeze(-1)     # [batch, nodes_lstm]
 
-        for x_batch, y_batch in self.val_ds:
-            preds = self.model.predict(x_batch, verbose=0)
-            y_true.extend(y_batch.numpy().flatten())
-            y_pred.extend(preds.flatten())
+        if self.dense is not None:
+            out = self.relu(self.dense(out))     # [batch, nodes_dense]
 
-        kge = kling_gupta_efficiency(y_pred, y_true)
-        print(f"Epoch {epoch + 1}: KGE = {kge:.4f}")
+        return self.output_layer(out)            # [batch, 1]
 
 
-def create_model(nodes_lstm, nodes_dense, dropout, metric, learning_rate):
+def create_model(n_features: int, nodes_lstm: int, nodes_dense: int,
+                 dropout: float, learning_rate: float):
     """
-    Erstellt und kompiliert ein LSTM-Modell mit optionaler Dense-Schicht.
+    Erstellt ein LSTM-Modell und den Optimierer.
 
-    Args:
-        nodes_lstm (int): Anzahl der Neuronen in der LSTM-Schicht.
-        nodes_dense (int): Anzahl der Neuronen in der Dense-Schicht (0 = keine).
-        dropout (float): Dropout-Rate.
-        metric (str): Schlüssel der zu verwendenden Metrik.
-        learning_rate (float): Lernrate des Adam-Optimierers.
-
-    Returns:
-        model (tf.keras.Model): Kompiliertes Keras-Modell.
-        early_stopping (tf.keras.callbacks.EarlyStopping): EarlyStopping-Callback.
+    :param n_features:    Anzahl der Eingabe-Features
+    :param nodes_lstm:    Neuronen in der LSTM-Schicht
+    :param nodes_dense:   Neuronen in der Dense-Schicht (0 = keine)
+    :param dropout:       Dropout-Rate
+    :param learning_rate: Lernrate des Adam-Optimierers
+    :return: model, optimizer, loss_fn
     """
-    model = tf.keras.models.Sequential()
-    model.add(tf.keras.layers.LSTM(nodes_lstm, return_sequences=True))
-    model.add(tf.keras.layers.Dropout(dropout))
-    model.add(tf.keras.layers.GlobalMaxPooling1D())
+    model     = LSTMModel(n_features, nodes_lstm, nodes_dense, dropout)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    loss_fn   = nn.MSELoss()
 
-    if nodes_dense > 0:
-        model.add(tf.keras.layers.Dense(nodes_dense, activation="relu"))
-
-    model.add(tf.keras.layers.Dense(1, activation="linear"))
-
-    metrics = {
-        "root_mean_squared_error": tf.keras.metrics.RootMeanSquaredError(),
-        "mean_squared_error": tf.keras.metrics.MeanSquaredError(),
-        "mean_absolute_error": tf.keras.metrics.MeanAbsoluteError(),
-        "r_square": tf.keras.metrics.R2Score(dtype=tf.float32),
-        "nse": NSEMetric(),
-        "mbe": MBEMetric(),
-    }
-
-    model.compile(
-        loss=tf.losses.MeanSquaredError(),
-        optimizer=tf.optimizers.Adam(learning_rate=learning_rate),
-        metrics=[metrics[metric]]
-    )
-
-    early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor="val_mean_squared_error",
-        patience=5,
-        min_delta=0.0,
-        restore_best_weights=True
-    )
-
-    return model, early_stopping
+    return model, optimizer, loss_fn
 
 
-def train_model(model, train_ds, val_ds, early_stopping, metric, epochs):
+def train_model(model: nn.Module, train_loader, val_loader,
+                optimizer, loss_fn, epochs: int, patience: int = 5):
     """
-    Trainiert ein Modell mit EarlyStopping und Validierungsdaten.
+    Trainiert das Modell mit manuellem Training Loop und EarlyStopping.
 
-    Args:
-        model (tf.keras.Model): Das zu trainierende Modell.
-        train_ds: Trainingsdatensatz.
-        val_ds: Validierungsdatensatz.
-        early_stopping: Keras EarlyStopping Callback.
-        metric (str): Bewertungsmetrik (wird aktuell nur geloggt).
-        epochs (int): Anzahl an Trainings-Epochen.
-
-    Returns:
-        history (tf.keras.callbacks.History): Trainingsverlauf.
+    :param model:        Das LSTM-Modell
+    :param train_loader: DataLoader für Trainingsdaten
+    :param val_loader:   DataLoader für Validierungsdaten
+    :param optimizer:    Adam-Optimierer
+    :param loss_fn:      Verlustfunktion (MSE)
+    :param epochs:       Maximale Epochenanzahl
+    :param patience:     Geduld für EarlyStopping
+    :return: history (dict mit train_loss und val_loss pro Epoche)
     """
-    history = model.fit(
-        train_ds,
-        validation_data=val_ds,
-        epochs=epochs,
-        callbacks=[early_stopping],
-        verbose=1
-    )
+    history          = {"train_loss": [], "val_loss": [], "val_kge": []}
+    best_val_loss    = float("inf")
+    best_weights     = None
+    patience_counter = 0
+
+    for epoch in range(epochs):
+
+        # --- Training ---
+        model.train()
+        train_losses = []
+        for x_batch, y_batch in train_loader:
+            optimizer.zero_grad()
+            y_pred = model(x_batch)
+            loss   = loss_fn(y_pred, y_batch)
+            loss.backward()
+            optimizer.step()
+            train_losses.append(loss.item())
+
+        # --- Validierung ---
+        model.eval()
+        val_losses = []
+        all_y_true = []
+        all_y_pred = []
+        with torch.no_grad():
+            for x_batch, y_batch in val_loader:
+                y_pred = model(x_batch)
+                loss   = loss_fn(y_pred, y_batch)
+                val_losses.append(loss.item())
+
+                all_y_true.extend(y_batch.numpy().flatten())
+                all_y_pred.extend(y_pred.numpy().flatten())
+
+        train_loss = np.mean(train_losses)
+        val_loss   = np.mean(val_losses)
+        val_kge = kling_gupta_efficiency(all_y_pred, all_y_true)
+
+        history["train_loss"].append(train_loss)
+        history["val_loss"].append(val_loss)
+        history["val_kge"].append(val_kge)
+
+        print(f"Epoch {epoch+1}/{epochs} "
+              f"| Train Loss: {train_loss:.4f} "
+              f"| Val Loss: {val_loss:.4f} " 
+              f"| KGE: {val_kge:.4f}")
+
+        # --- EarlyStopping ---
+        if val_loss < best_val_loss:
+            best_val_loss    = val_loss
+            best_weights     = {k: v.clone() for k, v in model.state_dict().items()}
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"Early Stopping nach Epoche {epoch+1}")
+                break
+
+    # Beste Gewichte wiederherstellen
+    model.load_state_dict(best_weights)
     return history
