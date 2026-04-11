@@ -1,5 +1,6 @@
 import os
 import re
+import torch
 import pandas as pd
 from datetime import datetime
 
@@ -68,7 +69,7 @@ def prepare_data(config, target_feature, stations, measurements):
     Bereitet die Datensätze für Training, Validierung und Test vor.
 
     :param config: Dictionary mit Modellkonfiguration (Batchgröße, Sequenzlänge etc.)
-    :param target_feature: Zielvariable (z. B. "SHA_NO3")
+    :param target_feature: Zielvariable (z. B. "SHA_Nit")
     :param stations: Liste der verwendeten Stationen
     :param measurements: Liste der Messgrößen
     :return: train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
@@ -84,30 +85,32 @@ def prepare_data(config, target_feature, stations, measurements):
     return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
 
 
-def build_and_train_model(train_ds, val_ds, config):
+def build_and_train_model(train_loader, val_loader, config, n_features: int):
     """
-    Erstellt ein LSTM-Modell und trainiert es mit den bereitgestellten Datensätzen.
+    Erstellt ein LSTM-Modell und trainiert es.
 
-    :param train_ds: Trainings-Dataset
-    :param val_ds: Validierungs-Dataset
-    :param config: Dictionary mit Modellparametern (LSTM-Nodes, Dense-Nodes, Dropout, etc.)
-    :return: trainiertes Modell, Trainingsverlauf (History-Objekt)
+    :param train_loader: Trainings-DataLoader
+    :param val_loader:   Validierungs-DataLoader
+    :param config:       Dictionary mit Modellparametern
+    :param n_features:   Anzahl der Eingabe-Features
+    :return:             Trainiertes Modell, History-Dictionary
     """
-    model, early_stopping = create_model(
+    model, optimizer, loss_fn = create_model(
+        n_features=n_features,
         nodes_lstm=config["nodes_lstm"],
         nodes_dense=config["nodes_dense"],
         dropout=config["dropout"],
-        metric=config["metric"],
         learning_rate=config["learning_rate"]
     )
 
     history = train_model(
         model=model,
-        train_ds=train_ds,
-        val_ds=val_ds,
-        early_stopping=early_stopping,
-        metric=config["metric"],
+        train_loader=train_loader,
+        val_loader=val_loader,
+        optimizer=optimizer,
+        loss_fn=loss_fn,
         epochs=config["epochs"],
+        patience=5
     )
     return model, history
 
@@ -142,27 +145,36 @@ def run(scenario):
         "nodes_lstm": 100,
         "nodes_dense": 64,
         "dropout": 0.1,
-        "metric": "mean_squared_error",
         "learning_rate": 0.0001,
         "batch_size": 16,
         "seq_length": 18,
         "epochs": 70
     }
 
-    train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y = prepare_data(
+    # Daten vorbereiten
+    (train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y) = prepare_data(
         model_config, target_feature, stations, measurements)
-    model, history = build_and_train_model(
-        train_ds, val_ds, model_config)
 
+    # n_features aus x_full ableiten
+    n_features = x_full.shape[1]
+
+    # Modell bauen und trainieren
+    model, history = build_and_train_model(
+        train_ds, val_ds, model_config, n_features)
+
+    # Metriken berechnen
     metrics_result = calculate_all_metrics(model, test_ds)
     model_name = generate_model_name(config_name, target_feature)
 
+    # Modell speichern
     output_dir = os.path.join("models", config_name)
     os.makedirs(output_dir, exist_ok=True)
-    model.save(os.path.join(output_dir, f"{model_name}.keras"))
+    torch.save(model.state_dict(), os.path.join(output_dir, f"{model_name}.pt"))
 
-    early_stopped = len(history.history["loss"])
+    # Early-Stopping-Epochen aus History auslesen
+    early_stopped = len(history["train_loss"])
 
+    # Modell-Metadaten speichern
     save_model_metadata(
         model_name=model_name,
         params={
@@ -172,17 +184,16 @@ def run(scenario):
         }
     )
 
-    split_save = os.path.join(output_dir, f"{model_name}_split_boundaries.csv")
-
     # Speichern der Split-Zeiträume
+    split_save = os.path.join(output_dir, f"{model_name}_split_boundaries.csv")
     save_split_boundaries(train_df, val_df, test_df, save_path=split_save)
 
+    # Evaluation und Vorhersage auf vollem Datensatz
     if full_ds is not None and timestamps_full is not None and x_full is not None and scaler_y is not None:
         from evaluate_model import evaluate_and_store_full_predictions
         evaluate_and_store_full_predictions(
             model=model,
             full_ds=full_ds,
-            timestamps=timestamps_full,
             output_dir=output_dir,
             x_full=x_full,
             scaler_y=scaler_y
