@@ -2,36 +2,28 @@ import os
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.linear_model import LinearRegression
 import numpy as np
-import tensorflow as tf
+import torch
 import pickle
 import pandas as pd
 
 
-def calculate_all_metrics(model, test_ds):
+def calculate_all_metrics(model, test_loader):
     """
     Bewertet ein trainiertes Modell auf einem Test-Datensatz und berechnet verschiedene Regressionsmetriken.
 
-    Args:
-        model (tf.keras.Model): Das trainierte Modell.
-        test_ds (tf.data.Dataset): Der Test-Datensatz als tf.data.Dataset.
-
-    Returns:
-        dict: Ein Dictionary mit folgenden Metriken:
-            - "MSE": Mean Squared Error
-            - "RMSE": Root Mean Squared Error
-            - "MAE": Mean Absolute Error
-            - "R2": R²-Koeffizient
-            - "NSE": Nash-Sutcliffe Efficiency
-            - "MBE": Mean Bias Error
-            - "KGE": Kling-Gupta Efficiency
+    :param model:       Das trainierte PyTorch-Modell
+    :param test_loader: DataLoader für den Testdatensatz
+    :return: Dictionary mit MSE, RMSE, MAE, R2, NSE, MBE, KGE
     """
+    model.eval()
     y_true = []
     y_pred = []
 
-    for x_batch, y_batch in test_ds:
-        preds = model.predict(x_batch, verbose=0)
-        y_true.extend(y_batch.numpy().flatten())
-        y_pred.extend(preds.flatten())
+    with torch.no_grad():
+        for x_batch, y_batch in test_loader:
+            preds = model(x_batch)
+            y_true.extend(y_batch.numpy().flatten())
+            y_pred.extend(preds.numpy().flatten())
 
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
@@ -88,8 +80,8 @@ def save_split_boundaries(train_df, val_df, test_df, save_path):
     print(f"Zeitbereiche der Splits gespeichert unter: {save_path}")
 
 
-def evaluate_and_store_full_predictions(model, full_ds, timestamps, output_dir,
-                                        x_full, scaler_y):
+def evaluate_and_store_full_predictions(model, full_ds, output_dir,
+                                        x_full, scaler_y, batch_size: int = 256):
     """
     Führt Vorhersage auf dem gesamten Datensatz durch und speichert:
     - predictions_full.npy
@@ -97,17 +89,27 @@ def evaluate_and_store_full_predictions(model, full_ds, timestamps, output_dir,
     - dates_full.npy
     - X_full.npy
     - scaler_y.pkl
-    """
 
+    :param model:      Das trainierte PyTorch-Modell
+    :param full_ds:    TimeSeriesDatasetWithTimestamps (iterierbares Dataset)
+    :param output_dir: Zielverzeichnis für die gespeicherten Dateien
+    :param x_full:     Vollständige skalierte Eingabematrix
+    :param scaler_y:   Scaler für die Zielvariable
+    :param batch_size: Batch-Größe für den DataLoader (beeinflusst nur Speicher nicht Ergebnis)
+    """
+    model.eval()
     y_true = []
     y_pred = []
     timestamps_collected = []
 
-    for x_batch, y_batch, t_batch in full_ds:
-        preds = model.predict(x_batch, verbose=0)
-        y_true.extend(y_batch.numpy().flatten())
-        y_pred.extend(preds.flatten())
-        timestamps_collected.extend(t_batch.numpy().flatten())
+    full_loader = torch.utils.data.DataLoader(full_ds, batch_size, shuffle=False)
+
+    with torch.no_grad():
+        for x_batch, y_batch, t_batch in full_loader:
+            preds = model(x_batch)
+            y_true.extend(y_batch.numpy().flatten())
+            y_pred.extend(preds.numpy().flatten())
+            timestamps_collected.extend(t_batch)
 
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
