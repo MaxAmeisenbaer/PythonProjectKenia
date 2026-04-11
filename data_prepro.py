@@ -1,7 +1,8 @@
 import os
 import numpy as np
 import pandas as pd
-import tensorflow as tf
+import torch
+from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
 
 
@@ -171,116 +172,162 @@ def prepare_targets(train_df, val_df, test_df, target_feature):
     return y_train, y_val, y_test
 
 
-def make_tf_datasets(x_train, x_val, x_test, y_train, y_val, y_test, seq_length, batch_size):
+def make_dataloaders(
+    x_train, x_val, x_test,
+    y_train, y_val, y_test,
+    seq_length: int,
+    batch_size: int,
+    num_workers: int = 0
+) -> tuple[DataLoader, DataLoader, DataLoader]:
     """
-    Erzeugt TensorFlow-Zeitreihen-Datensätze für Training, Validierung und Test.
+    Erzeugt PyTorch DataLoader für Training, Validierung und Test.
 
-    :param x_train: Skalierte Eingabedaten Training
-    :param x_val: Validierung
-    :param x_test: Test
-    :param y_train: Zielvariable Training
-    :param y_val: Zielvariable Val
-    :param y_test: Zielvariable Test
-    :param seq_length: Sequenzlänge für das LSTM
-    :param batch_size: Batchgröße für das Training
-    :return: train_ds, val_ds, test_ds als TensorFlow-Datensätze
+    :param x_train:     Skalierte Eingabedaten Training
+    :param x_val:       Skalierte Eingabedaten Validierung
+    :param x_test:      Skalierte Eingabedaten Test
+    :param y_train:     Zielvariable Training
+    :param y_val:       Zielvariable Validierung
+    :param y_test:      Zielvariable Test
+    :param seq_length:  Sequenzlänge für das LSTM
+    :param batch_size:  Batchgröße
+    :param num_workers: Anzahl paralleler Ladeprozesse (0 = Hauptprozess)
+    :return: train_loader, val_loader, test_loader
     """
-    ds_train = create_tf_dataset(x_train, y_train, seq_length, batch_size)
-    ds_val = create_tf_dataset(x_val, y_val, seq_length, batch_size)
-    ds_test = create_tf_dataset(x_test, y_test, seq_length, batch_size)
-    return ds_train, ds_val, ds_test
+    train_ds = TimeSeriesDataset(x_train, y_train, seq_length)
+    val_ds   = TimeSeriesDataset(x_val,   y_val,   seq_length)
+    test_ds  = TimeSeriesDataset(x_test,  y_test,  seq_length)
 
-
-def create_tf_dataset(data, target, seq_length, batch_size):
-    """
-    Erstellt einen TensorFlow-Datensatz im Zeitreihenformat aus Eingabe- und Zielwerten.
-
-    :param data: Eingabematrix
-    :param target: Zielmatrix
-    :param seq_length: Sequenzlänge (Zeitschritte pro Sample)
-    :param batch_size: Größe der Batches
-    :return: tf.data.Dataset im Timeseries-Format
-    """
-    data = data[:-seq_length]
-    target = target[seq_length:]
-
-    ds = tf.keras.utils.timeseries_dataset_from_array(
-        data, target,
-        sequence_length=seq_length,
-        sequence_stride=1,
-        batch_size=batch_size
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=batch_size,
+        shuffle=True,          # ← True/False - kann geändert werden - True bei Zeitreihen in Training oft üblich
+        num_workers=num_workers
     )
-    return ds
+    val_loader = DataLoader(
+        val_ds,
+        batch_size=batch_size,
+        shuffle=False,         # ← Validierung/Test nie shufflen
+        num_workers=num_workers
+    )
+    test_loader = DataLoader(
+        test_ds,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers
+    )
+    return train_loader, val_loader, test_loader
 
-def create_full_dataset_with_timestamps(x_full, y_full, timestamps, seq_length, batch_size):
+
+class TimeSeriesDataset(Dataset):
     """
-    Erstellt ein tf.data.Dataset aus Sequenzen, Targets und zugehörigen Zeitstempeln.
+    PyTorch Dataset für Zeitreihendaten im Sliding-Window-Format.
+
+    :param data:       Eingabematrix (numpy array) [n_samples, n_features]
+    :param target:     Zielmatrix (numpy array)    [n_samples, 1]
+    :param seq_length: Anz np.ndarray, seq_length: int):
     """
-    x_seq = []
-    y_seq = []
-    t_seq = []
+    def __init__(self, data: np.ndarray, target: np.ndarray, seq_length: int):
+        # Analog zur alten Logik: data[:-seq_length], target[seq_length:]
+        self.data   = torch.tensor(data[:-seq_length],   dtype=torch.float32)
+        self.target = torch.tensor(target[seq_length:],  dtype=torch.float32)
+        self.seq_length = seq_length
 
-    for i in range(len(x_full) - seq_length):
-        x_seq.append(x_full[i:i + seq_length])
-        y_seq.append(y_full[i + seq_length])
-        t_seq.append(timestamps[i + seq_length])  # Zeitpunkt des Zielwerts
+    def __len__(self) -> int:
+        # Anzahl möglicher Sequenzen
+        return len(self.data) - self.seq_length + 1
 
-    x_seq = np.array(x_seq)
-    y_seq = np.array(y_seq)
-    t_seq = np.array(t_seq, dtype=str)
+    def __getitem__(self, idx: int):
+        x = self.data[idx : idx + self.seq_length]   # Shape: [seq_length, n_features]
+        y = self.target[idx]                          # Shape: [1]
+        return x, y
 
-    # Dataset mit (x, y, timestamp)
-    ds = tf.data.Dataset.from_tensor_slices((x_seq, y_seq, t_seq))
-    ds = ds.batch(batch_size)
-
-    return ds
-
-def create_final_ds(station, stations, measurements, target_feature,
-                    batch_size, seq_length, interval="10min"):
+class TimeSeriesDatasetWithTimestamps(Dataset):
     """
-    Komplett-Pipeline zur Datenerstellung: Lädt und verarbeitet alle Messwerte, skaliert sie,
-    erzeugt Zielvariablen und TensorFlow-Datensätze. Speichert das vollständige DataFrame als Pickle.
+    Eingabematrix [n_samples, n_features]
+    :param target:      Zielmatrix   (numpy array) [n_samples, 1]
+    :param timestamps:  Zeitstempel-Array (numpy, dtype datetime64 oder str)
+    :param seq_length:  Anz int):
+    """
+    def __init__(self, data: np.ndarray, target: np.ndarray, timestamps: np.ndarray, seq_length: int):
+        self.sequences  = []
+        self.targets    = []
+        self.timestamps = []
 
-    :param station: Zielstation (für Namen des Pickle-Files)
-    :param stations: Liste aller beteiligten Stationen
-    :param measurements: Dictionary der Messwerte pro Station
-    :param target_feature: Zielvariable
-    :param batch_size: Batchgröße für das LSTM
-    :param seq_length: Sequenzlänge
-    :param interval: Resampling-Intervall
-    :return: train_ds, val_ds, test_ds, train_df, test_df, val_df,
-             X_full, y_full, timestamps_full, scaler_y
+        for i in range(len(data) - seq_length):
+            self.sequences.append(data[i : i + seq_length])
+            self.targets.append(target[i + seq_length])
+            self.timestamps.append(timestamps[i + seq_length])
+
+        self.sequences = torch.tensor(
+            np.array(self.sequences), dtype=torch.float32
+        )
+        self.targets = torch.tensor(
+            np.array(self.targets), dtype=torch.float32
+        )
+        # Zeitstempel bleiben als numpy/string – PyTorch kennt kein datetime
+        self.timestamps = np.array(self.timestamps, dtype=str)
+
+    def __len__(self) -> int:
+        return len(self.sequences)
+
+    def __getitem__(self, idx: int):
+        # Zeitstempel wird separat zurückgegeben, nicht als Tensor
+        return self.sequences[idx], self.targets[idx], self.timestamps[idx]
+
+def create_final_ds(
+    station: str,
+    stations: list,
+    measurements: dict,
+    target_feature: str,
+    batch_size: int,
+    seq_length: int,
+    interval: str = "10min"
+):
+    """
+    Komplett-Pipeline: Laden → Splitten → Skalieren → DataLoader erstellen.
+
+    :return: train_loader, val_loader, test_loader,
+             train_df, test_df, val_df,
+             x_full, full_dataset, timestamps_full, scaler_y
     """
     # Daten laden
     df = load_data(stations, measurements, interval=interval)
     df.to_pickle(f"{station}-dataframe.pkl")
     df.drop(columns=df.columns[df.columns.duplicated()], inplace=True)
 
-    # Split in Trainings-, Validierungs-, Test-Set
+    # Split
     train_df, val_df, test_df = split_dataset(df, target_feature)
-    # x und y für Training vorbereiten
-    x_train, x_val, x_test, scaler = scale_features(train_df, val_df, test_df, target_feature)
-    y_train, y_val, y_test = prepare_targets(train_df, val_df, test_df, target_feature)
 
-    train_ds, val_ds, test_ds = make_tf_datasets(x_train, x_val, x_test,
-                                                 y_train, y_val, y_test,
-                                                 seq_length, batch_size)
-    # Zeitstempel und Zielvariable extrahieren
-    timestamps_full = df.index.to_numpy()
-    y_full = np.array(df[target_feature], ndmin=2).T
+    # Skalierung
+    x_train, x_val, x_test, scaler = scale_features(
+        train_df, val_df, test_df, target_feature
+    )
+    y_train, y_val, y_test = prepare_targets(
+        train_df, val_df, test_df, target_feature
+    )
+
+    # DataLoader erstellen  ← einzige tf-Abhängigkeit ersetzt
+    train_loader, val_loader, test_loader = make_dataloaders(
+        x_train, x_val, x_test,
+        y_train, y_val, y_test,
+        seq_length, batch_size
+    )
 
     # Zielvariable separat skalieren
-    scaler_y = MinMaxScaler()
+    timestamps_full = df.index.to_numpy()
+    y_full          = np.array(df[target_feature], ndmin=2).T
+    scaler_y        = MinMaxScaler()
     scaler_y.fit(y_full)
 
-    # Feature-Scaler fitten und Eingabematrix skalieren
+    # Vollständige Eingabematrix skalieren
     x_full = scaler.transform(df.drop(columns=[target_feature]))
     x_full = np.clip(x_full, 0, 1)
 
+    # Full-Dataset mit Zeitstempeln
+    full_dataset = TimeSeriesDatasetWithTimestamps(
+        x_full, y_full, timestamps_full, seq_length
+    )
 
-    # Full-Datensatz (für spätere Analyse/Vorhersagen)
-    full_ds = create_full_dataset_with_timestamps(x_full, y_full, timestamps_full, seq_length, batch_size)
-
-    return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
-
-
+    return (train_loader, val_loader, test_loader,
+            train_df, test_df, val_df,
+            x_full, full_dataset, timestamps_full, scaler_y)
