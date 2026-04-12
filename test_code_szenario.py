@@ -1,10 +1,10 @@
 def get_test_code_config():
     config_name = "test_code"
-    stations = ["SHA", "KFS"]
+    stations = ["SHA", "Fun"]
 
     measurements = {
         "SHA": ["disch", "nit"],
-        "KFS": ["prec"]
+        "Fun": ["prec"]
     }
     target_feature = "SHA_nit"
 

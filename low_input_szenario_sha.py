@@ -9,7 +9,7 @@ def get_low_input_config():
         "TF2": ["temp","prec"],
         "NF": ["disch", "prec"],
         "Kur": ["prec"],
-        "KFS": ["gust", "par", "rh","temp","wind","prec"],
+        "KFS": ["gust", "par", "rh","temp","wind"],
         "Fun": ["prec"],
         "Fin": ["prec"],
         "Cha": ["prec"],

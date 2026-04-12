@@ -9,7 +9,7 @@ def get_not_nit_config():
         "TF2": ["temp", "prec"],
         "NF": ["disch", "doc", "elc", "tcd", "toc", "tsp", "tur", "wl", "prec"],
         "Kur": ["prec"],
-        "KFS": ["dir", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind", "prec"],
+        "KFS": ["dir", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind"],
         "Fun": ["prec"],
         "Fin": ["prec"],
         "Cha": ["prec"],

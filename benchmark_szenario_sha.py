@@ -9,7 +9,7 @@ def get_benchmark_config():
         "TF2": ["temp", "prec"],
         "NF": ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl", "prec"],
         "Kur": ["prec"],
-        "KFS": ["dir", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind", "prec"],
+        "KFS": ["dir", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind"],
         "Fun": ["prec"],
         "Fin": ["prec"],
         "Cha": ["prec"],
