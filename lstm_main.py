@@ -144,9 +144,10 @@ def run(scenario):
     model_config = {
         "nodes_lstm": 100,
         "nodes_dense": 64,
-        "dropout": 0.1,
-        "learning_rate": 0.0001,
-        "batch_size": 16,
+        "dropout": 0.2,
+        "learning_rate": 0.001,
+        "num_layers": 2,
+        "batch_size": 64,
         "seq_length": 18,
         "epochs": 70
     }
@@ -206,4 +207,4 @@ def run(scenario):
 
 
 if __name__ == "__main__":
-    run(scenario="low_input")
+    run(scenario="benchmark")
