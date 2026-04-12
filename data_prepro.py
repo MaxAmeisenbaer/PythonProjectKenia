@@ -5,6 +5,9 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
 
+# ── Schwellenwert: Stationen mit mehr NaN-Anteil werden ausgeschlossen ──
+MAX_PREC_NAN_RATIO = 0.20
+
 
 def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
     """
@@ -50,7 +53,7 @@ def create_standard_measurement_df(filename, measure, interval, directory="Data"
     return df
 
 
-def create_precipitation_df(reference_times, station, interval, directory="Data"):
+def create_precipitation_df(station, interval, directory="Data"):
     """
     Erstellt aus einer Niederschlagsdatei einen summierten, interpolierten DataFrame,
     basierend auf einem vorgegebenen Zeitindex.
@@ -63,14 +66,52 @@ def create_precipitation_df(reference_times, station, interval, directory="Data"
     """
     filepath = os.path.join(directory, f"{station}-prec.csv")
     df = load_and_trim_dataframe(filepath, valid_time_suffix=None)
-    df = df.interpolate()
     df.rename(columns={"value": f"{station}_prec"}, inplace=True)
 
-    df = df[df.index.isin(pd.to_datetime(reference_times))]
-    df = df.resample(interval).sum()
+    df = df.resample(interval).sum(min_count=1)
+
+    # Prüfe NaN-Anteil
+    nan_ratio = df.isna().sum().sum() / len(df)
+    if nan_ratio > MAX_PREC_NAN_RATIO:
+        print(f"  ⚠️  {station}_prec: {nan_ratio:.1%} NaN → Station wird ausgeschlossen")
+        return None
+
+    print(f"  ✓  {station}_prec: {nan_ratio:.1%} NaN")
 
     return df
 
+def impute_precipitation(df):
+    """
+    Füllt NaN in Niederschlagsspalten mit dem Mittelwert der anderen Stationen
+    zum gleichen Zeitpunkt (räumliche Interpolation).
+    Ausnahmefall: Falls alle Stationen gleichzeitig NaN haben → 0.
+    """
+    prec_cols = [c for c in df.columns if c.endswith("_prec")]
+
+    if len(prec_cols) <= 1:
+        df[prec_cols] = df[prec_cols].fillna(0)
+        return df
+
+    n_imputed_total = 0
+    for col in prec_cols:
+        other_cols = [c for c in prec_cols if c != col]
+        mask = df[col].isna()
+        n_imputed = mask.sum()
+
+        if n_imputed > 0:
+            df.loc[mask, col] = df.loc[mask, other_cols].mean(axis=1)
+            n_imputed_total += n_imputed
+
+    # Falls ALLE Stationen gleichzeitig NaN hatten → 0
+    remaining_nan = df[prec_cols].isna().sum().sum()
+    if remaining_nan > 0:
+        df[prec_cols] = df[prec_cols].fillna(0)
+
+    print(f"\n  Niederschlags-Imputation:")
+    print(f"    {n_imputed_total} Werte durch Stationsmittel ersetzt")
+    print(f"    {remaining_nan} Restwerte mit 0 gefüllt (alle Stationen gleichzeitig NaN)")
+
+    return df
 
 def create_filenames(stations, measurements):
     """
@@ -105,14 +146,41 @@ def load_data(stations, measurements, interval="10min"):
         measure = filename.split("-")[1].split(".")[0]
         frames.append(create_standard_measurement_df(filename, measure, interval=interval))
 
-    df_time = create_standard_measurement_df("SHA-nit.csv", "nit", interval=interval)
-
+    # ── Niederschlag laden ──
+    print("\n=== Niederschlagsstationen ===")
+    prec_frames = []
     for station in stations:
         if "prec" in measurements.get(station, []):
-            prec_df = create_precipitation_df(df_time.index, station, interval)
-            frames.append(prec_df)
+            prec_df = create_precipitation_df(station, interval)  # ← kein reference_times mehr
+            if prec_df is not None:  # ← None-Check für ausgeschlossene Stationen
+                prec_frames.append(prec_df)
+
+    # ── Niederschlag zusammenführen und imputieren ──
+    if prec_frames:
+        prec_combined = pd.concat(prec_frames, axis=1)
+        prec_combined = impute_precipitation(prec_combined)
+        frames.append(prec_combined)
 
     df = pd.concat(frames, axis=1)
+
+    # ── NaN-Behandlung nach Zusammenführung ──
+    n_before = len(df)
+    nan_count_before = df.isna().sum().sum()
+
+    # 1. Interpolation für kleine innere Lücken (limit begrenzt max. Lückenlänge)
+    df = df.interpolate(method="time", limit=6)
+
+    # 2. Restliche NaN-Zeilen entfernen (Ränder, wo keine Interpolation möglich)
+    df = df.dropna()
+
+    n_after = len(df)
+    nan_count_after = df.isna().sum().sum()
+
+    print(f"NaN-Bereinigung: {nan_count_before} NaN in {n_before} Zeilen"
+          f" → {nan_count_after} NaN in {n_after} Zeilen"
+          f" ({n_before - n_after} Zeilen entfernt)")
+    # ── Ende NaN-Behandlung ──
+
     return df
 
 
@@ -147,6 +215,16 @@ def scale_features(train_df, val_df, test_df, target_feature):
     :return: Skalierte Arrays (train, val, test) und der verwendete Scaler
     """
     scaler = MinMaxScaler()
+
+    train_features = train_df.drop(columns=[target_feature])
+
+    # ── Sicherheitscheck ──
+    if train_features.isna().any().any():
+        nan_cols = train_features.columns[train_features.isna().any()].tolist()
+        raise ValueError(
+            f"NaN in Trainingsdaten vor Skalierung! Betroffene Spalten: {nan_cols}"
+        )
+
     scaler.fit(train_df.drop(columns=[target_feature]))
 
     train_scaled = scaler.transform(train_df.drop(columns=[target_feature]))
