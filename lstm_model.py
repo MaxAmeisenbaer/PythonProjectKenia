@@ -142,6 +142,11 @@ def train_model(model: nn.Module, train_loader, val_loader,
     :param patience:     Geduld für EarlyStopping
     :return: history (dict mit train_loss und val_loss pro Epoche)
     """
+    #Auskommentiert - Scheduler kann implementiert werden - earlyStopping mit hochstellen
+    #scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+    #    optimizer, mode='min', factor=0.5, patience=5, min_lr=1e-6
+    #)
+
     history          = {"train_loss": [], "val_loss": [], "val_kge": []}
     best_val_loss    = float("inf")
     best_weights     = None
@@ -183,10 +188,12 @@ def train_model(model: nn.Module, train_loader, val_loader,
         history["val_loss"].append(val_loss)
         history["val_kge"].append(val_kge)
 
+        current_lr=optimizer.param_groups[0]["lr"]
         print(f"Epoch {epoch+1}/{epochs} "
               f"| Train Loss: {train_loss:.4f} "
               f"| Val Loss: {val_loss:.4f} " 
-              f"| KGE: {val_kge:.4f}")
+              f"| KGE: {val_kge:.4f}"
+              f"| LR: {current_lr:.2e}")
 
         # --- EarlyStopping ---
         if val_loss < best_val_loss:
