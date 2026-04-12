@@ -67,18 +67,20 @@ class LSTMModel(nn.Module):
     :param nodes_lstm:   Anzahl der Neuronen in der LSTM-Schicht
     :param nodes_dense:  Anzahl der Neuronen in der Dense-Schicht (0 = keine)
     :param dropout:      Dropout-Rate
+    :param num_layers:  Anzahl gestapelter LSTM-Layer
     """
     def __init__(self, n_features: int, nodes_lstm: int,
-                 nodes_dense: int, dropout: float):
+                 nodes_dense: int, dropout: float, num_layers: int = 2):
         super().__init__()
 
         self.lstm    = nn.LSTM(
             input_size=n_features,
             hidden_size=nodes_lstm,
-            batch_first=True          # ← Input-Shape: [batch, seq_len, features]
+            num_layers=num_layers,
+            batch_first=True,          # ← Input-Shape: [batch, seq_len, features]
+            dropout=dropout if num_layers > 1 else 0.0
         )
         self.dropout = nn.Dropout(dropout)
-        self.pool    = nn.AdaptiveMaxPool1d(1)  # gleich zu GlobalMaxPooling1D in Keras
 
         if nodes_dense > 0:
             self.dense = nn.Linear(nodes_lstm, nodes_dense)
@@ -97,10 +99,9 @@ class LSTMModel(nn.Module):
         :param x: Eingabe-Tensor [batch_size, seq_length, n_features]
         :return:  Ausgabe-Tensor [batch_size, 1]
         """
-        out, _ = self.lstm(x)                    # [batch, seq_len, nodes_lstm]
-        out     = self.dropout(out)
-        out     = out.permute(0, 2, 1)           # [batch, nodes_lstm, seq_len]
-        out     = self.pool(out).squeeze(-1)     # [batch, nodes_lstm]
+        out, _ = self.lstm(x)  # [batch, seq_len, nodes_lstm]
+        out = out[:, -1, :]  # [batch, nodes_lstm] ← letzter Zeitschritt
+        out = self.dropout(out)
 
         if self.dense is not None:
             out = self.relu(self.dense(out))     # [batch, nodes_dense]
@@ -109,7 +110,7 @@ class LSTMModel(nn.Module):
 
 
 def create_model(n_features: int, nodes_lstm: int, nodes_dense: int,
-                 dropout: float, learning_rate: float):
+                 dropout: float, learning_rate: float, num_layers: int = 2):
     """
     Erstellt ein LSTM-Modell und den Optimierer.
 
@@ -120,7 +121,7 @@ def create_model(n_features: int, nodes_lstm: int, nodes_dense: int,
     :param learning_rate: Lernrate des Adam-Optimierers
     :return: model, optimizer, loss_fn
     """
-    model     = LSTMModel(n_features, nodes_lstm, nodes_dense, dropout)
+    model     = LSTMModel(n_features, nodes_lstm, nodes_dense, dropout, num_layers)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     loss_fn   = nn.MSELoss()
 
@@ -156,6 +157,7 @@ def train_model(model: nn.Module, train_loader, val_loader,
             y_pred = model(x_batch)
             loss   = loss_fn(y_pred, y_batch)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             train_losses.append(loss.item())
 
