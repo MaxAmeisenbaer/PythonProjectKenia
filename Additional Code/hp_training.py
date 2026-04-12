@@ -22,9 +22,10 @@ def objective(trial):
     # --- Hyperparameter definieren ---
     nodes_lstm    = trial.suggest_categorical("nodes_lstm",    [10, 20, 50, 100])
     dropout       = trial.suggest_categorical("dropout",       [0.1, 0.2, 0.3, 0.5])
-    learning_rate = trial.suggest_categorical("learning_rate", [1e-1, 1e-2, 1e-3, 1e-4])
-    batch_size    = trial.suggest_categorical("batch_size",    [16, 32, 128])
-    seq_length    = trial.suggest_categorical("seq_length",    [2, 6, 18, 432])
+    learning_rate = trial.suggest_categorical("learning_rate", [1e-2, 1e-3, 1e-4])
+    num_layers    = trial.suggest_categorical("num_layers",    [1,2,3])
+    batch_size    = trial.suggest_categorical("batch_size",    [32, 64, 128])
+    seq_length    = trial.suggest_categorical("seq_length",    [6, 18, 72, 432])
     epochs        = trial.suggest_categorical("epochs",        [20, 30, 50, 70])
     nodes_dense   = trial.suggest_categorical("nodes_dense",   [0, 32, 64])
 
@@ -49,7 +50,8 @@ def objective(trial):
         nodes_lstm=nodes_lstm,
         nodes_dense=nodes_dense,
         dropout=dropout,
-        learning_rate=learning_rate
+        learning_rate=learning_rate,
+        num_layers=num_layers
     )
 
     # --- Training ---
@@ -70,16 +72,7 @@ def objective(trial):
 # --- Studie erstellen und Suche starten ---
 study = optuna.create_study(
     direction="minimize",
-    sampler=optuna.samplers.GridSampler({
-        "nodes_lstm":    [10, 20, 50, 100],
-        "dropout":       [0.1, 0.2, 0.3, 0.5],
-        "learning_rate": [1e-1, 1e-2, 1e-3, 1e-4],
-        "batch_size":    [16, 32, 128],
-        "seq_length":    [2, 6, 18, 432],
-        "epochs":        [20, 30, 50, 70],
-        "nodes_dense":   [0, 32, 64]
-        }
-    ),
+    sampler=optuna.samplers.TPESampler(seed=42), #Bayessche Optimierung
     study_name="lstm_tuning"
 )
 
@@ -87,6 +80,9 @@ study.optimize(objective, n_trials=20)
 
 # --- Beste Parameter ausgeben ---
 print(f"Bester Validierungsverlust: {study.best_value:.4f}")
+print("Beste Hyperparameter:")
+for k, v in study.best_params.items():
+    print(f"  {k}: {v}")
 
 # --- Bestes Modell neu trainieren ---
 best = study.best_params
@@ -110,7 +106,8 @@ best_model, optimizer, loss_fn = create_model(
     nodes_lstm=best["nodes_lstm"],
     nodes_dense=best["nodes_dense"],
     dropout=best["dropout"],
-    learning_rate=best["learning_rate"]
+    learning_rate=best["learning_rate"],
+    num_layers=best["num_layers"]
 )
 
 history = train_model(
