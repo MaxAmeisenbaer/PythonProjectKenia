@@ -52,7 +52,7 @@ def plot_predictions_full_timeline(model_folder, output_path, szenario, boundari
     :param szenario: Name des Szenarios (z.B. "benchmark")
     :param boundaries: Dictionary mit Split-Grenzen (train/val/test)
     """
-    y_pred, y_true, full_timestamps = load_model_and_predictions(model_folder, keras_file)
+    y_pred, y_true, full_timestamps = load_predictions(model_folder)
 
     if len(full_timestamps) != len(y_pred):
         raise ValueError(f"Längen passen nicht: {len(full_timestamps)} vs. {len(y_pred)}")
@@ -168,8 +168,8 @@ def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scat
             raise ValueError(f"Unbekannter Modellordner: {szenario}")
 
         boundaries = load_split_boundaries(model_path, split_info)
-        plot_predictions_full_timeline(model_path, pt_file, output_zeitreihe_dir, szenario, boundaries)
-        plot_scatter(model_path, output_scatter_dir, pt_file, szenario)
+        plot_predictions_full_timeline(model_path,output_zeitreihe_dir, szenario, boundaries)
+        plot_scatter(model_path, output_scatter_dir, szenario)
 
 
 def main():
