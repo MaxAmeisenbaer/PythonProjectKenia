@@ -49,7 +49,7 @@ def log_transform_rightskew(df, col, epsilon=1e-6):
 
     return df
 
-def inverse_log_transform(values, method="log1p", epsilon=1e-6):
+def inverse_log_transform(y_true, y_pred, method="log1p", epsilon=1e-6):
     """
     Rücktransformation der Log-Werte.
 
@@ -59,8 +59,14 @@ def inverse_log_transform(values, method="log1p", epsilon=1e-6):
     :return: Rücktransformierte Werte
     """
     if method == "log1p":
-        return np.expm1(values)     # Inverse von log1p
+        y_true = np.expm1(y_true)
+        y_pred = np.expm1(y_pred)
+        y_pred = np.maximum(y_pred, 0)
+        return y_true, y_pred    # Inverse von log1p
     elif method == "log_eps":
-        return np.exp(values) - epsilon  # Inverse von log(x + epsilon)
+        y_true = np.exp(y_true) - epsilon
+        y_pred = np.exp(y_pred) - epsilon
+        y_pred = np.maximum(y_pred, 0)
+        return y_true, y_pred  # Inverse von log(x + epsilon)
     else:
         raise ValueError(f"Unbekannte Methode: {method}")

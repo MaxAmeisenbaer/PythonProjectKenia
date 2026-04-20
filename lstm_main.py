@@ -10,7 +10,7 @@ from benchmark_szenario_sha import get_benchmark_config
 from low_input_szenario_sha import get_low_input_config
 from not_nit_szenario_sha import get_not_nit_config
 from test_code_szenario import get_test_code_config
-from evaluate_model import calculate_all_metrics, save_split_boundaries
+from evaluate_model import calculate_all_metrics, save_split_boundaries, evaluate_and_store_full_predictions
 from not_lyser_szenario_sha import get_not_lyser_config
 
 
@@ -74,7 +74,7 @@ def prepare_data(config, target_feature, stations, measurements):
     :param measurements: Liste der Messgrößen
     :return: train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
     """
-    train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y = create_final_ds(
+    train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, log_target, scaler_y = create_final_ds(
         station="SHA",
         stations=stations,
         target_feature=target_feature,
@@ -82,7 +82,7 @@ def prepare_data(config, target_feature, stations, measurements):
         seq_length=config["seq_length"],
         measurements=measurements
     )
-    return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
+    return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, log_target, scaler_y
 
 
 def build_and_train_model(train_loader, val_loader, config, n_features: int):
@@ -153,7 +153,7 @@ def run(scenario):
     }
 
     # Daten vorbereiten
-    (train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y) = prepare_data(
+    (train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, log_target, scaler_y) = prepare_data(
         model_config, target_feature, stations, measurements)
 
     # n_features aus x_full ableiten
@@ -164,7 +164,7 @@ def run(scenario):
         train_ds, val_ds, model_config, n_features)
 
     # Metriken berechnen
-    metrics_result = calculate_all_metrics(model, test_ds, log_target=True)
+    metrics_result = calculate_all_metrics(model, test_ds, log_target=log_target)
     model_name = generate_model_name(config_name, target_feature)
 
     # Modell speichern
@@ -191,14 +191,13 @@ def run(scenario):
 
     # Evaluation und Vorhersage auf vollem Datensatz
     if full_ds is not None and timestamps_full is not None and x_full is not None and scaler_y is not None:
-        from evaluate_model import evaluate_and_store_full_predictions
         evaluate_and_store_full_predictions(
             model=model,
             full_ds=full_ds,
             output_dir=output_dir,
             x_full=x_full,
             scaler_y=scaler_y,
-            log_target=True
+            log_target=log_target
         )
 
     return {

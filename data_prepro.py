@@ -131,17 +131,19 @@ def create_filenames(stations, measurements):
     return filenames
 
 
-def load_data(stations, measurements, interval="10min"):
+def load_data(stations, measurements, target_feature, interval="10min"):
     """
     Lädt, kombiniert und verarbeitet alle relevanten Zeitreihen (Messwerte und Niederschlag).
 
     :param stations: Liste der Stationsnamen
     :param measurements: Dictionary mit Messwertlisten je Station
+    :param target_feature: Boolscher Wert, über Angabe der Logarithmisierung des target-Features
     :param interval: Zeitintervall für das Resampling
-    :return: Kombinierter DataFrame aller Zeitreihen
+    :return: Kombinierter DataFrame aller Zeitreihen & Infos über target_feature logarithmisierung
     """
     filenames = create_filenames(stations, measurements)
     frames = []
+    log_target = ""
 
     for filename in filenames:
         measure = filename.split("-")[1].split(".")[0]
@@ -172,6 +174,15 @@ def load_data(stations, measurements, interval="10min"):
     for col, stats in skew_dict.items():
         s = stats["skew"]
         pz = stats["pct_zero"]
+        if col == target_feature:
+            if s > 1:
+                log_target = "log_eps"
+            elif s > 1 and pz > 10:
+                log_target = "log1p"
+            else:
+                log_target = "Kein log"
+        else:
+            pass
 
         if s > 1 and pz > 10:
             #log1p
@@ -200,10 +211,10 @@ def load_data(stations, measurements, interval="10min"):
           f" ({n_before - n_after} Zeilen entfernt)")
     # ── Ende NaN-Behandlung ──
 
-    return df
+    return df, log_target
 
 
-def split_dataset(df, target_feature, split_ratios=(0.6, 0.2, 0.2)):
+def split_dataset(df, split_ratios=(0.6, 0.2, 0.2)):
     """
     Teilt den DataFrame in Trainings-, Validierungs- und Testset gemäß gegebenem Verhältnis.
 
@@ -381,19 +392,19 @@ def create_final_ds(
     interval: str = "10min"
 ):
     """
-    Komplett-Pipeline: Laden → Splitten → Skalieren → DataLoader erstellen.
+    Komplett-Pipeline: Laden (+ normalisieren) → Splitten → Skalieren → DataLoader erstellen.
 
     :return: train_loader, val_loader, test_loader,
              train_df, test_df, val_df,
-             x_full, full_dataset, timestamps_full, scaler_y
+             x_full, full_dataset, timestamps_full, log_target, scaler_y
     """
     # Daten laden
-    df = load_data(stations, measurements, interval=interval)
+    df, log_target = load_data(stations, measurements, target_feature, interval=interval)
     df.to_pickle(f"{station}-dataframe.pkl")
     df.drop(columns=df.columns[df.columns.duplicated()], inplace=True)
 
     # Split
-    train_df, val_df, test_df = split_dataset(df, target_feature)
+    train_df, val_df, test_df = split_dataset(df)
 
     # Skalierung
     x_train, x_val, x_test, scaler = scale_features(
@@ -427,4 +438,4 @@ def create_final_ds(
 
     return (train_loader, val_loader, test_loader,
             train_df, test_df, val_df,
-            x_full, full_dataset, timestamps_full, scaler_y)
+            x_full, full_dataset, timestamps_full, log_target, scaler_y)
