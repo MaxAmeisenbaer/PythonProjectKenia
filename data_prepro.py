@@ -4,6 +4,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
+from log_transformation import log_transform_precipitation, log_transform_rightskew_columns
 
 # ── Schwellenwert: Stationen mit mehr NaN-Anteil werden ausgeschlossen ──
 MAX_PREC_NAN_RATIO = 0.20
@@ -151,7 +152,7 @@ def load_data(stations, measurements, interval="10min"):
     prec_frames = []
     for station in stations:
         if "prec" in measurements.get(station, []):
-            prec_df = create_precipitation_df(station, interval)  # ← kein reference_times mehr
+            prec_df = create_precipitation_df(station, interval)
             if prec_df is not None:  # ← None-Check für ausgeschlossene Stationen
                 prec_frames.append(prec_df)
 
@@ -162,6 +163,14 @@ def load_data(stations, measurements, interval="10min"):
         frames.append(prec_combined)
 
     df = pd.concat(frames, axis=1)
+
+    # log-Transformation für Niederschlagsdaten
+    df=log_transform_precipitation(df)
+
+    #log-Transformation Abfluss & Nitrat
+    log_cols = [c for c in df.columns if c.endswith(("_disch","_nit"))]
+    if log_cols:
+        df = log_transform_rightskew_columns(df, log_cols)
 
     # ── NaN-Behandlung nach Zusammenführung ──
     n_before = len(df)

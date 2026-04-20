@@ -7,12 +7,13 @@ import pickle
 import pandas as pd
 
 
-def calculate_all_metrics(model, test_loader):
+def calculate_all_metrics(model, test_loader, log_target=True):
     """
     Bewertet ein trainiertes Modell auf einem Test-Datensatz und berechnet verschiedene Regressionsmetriken.
 
     :param model:       Das trainierte PyTorch-Modell
     :param test_loader: DataLoader für den Testdatensatz
+    :param log_target: True wenn Zielvariable log-transformiert ist
     :return: Dictionary mit MSE, RMSE, MAE, R2, NSE, MBE, KGE
     """
     model.eval()
@@ -27,6 +28,12 @@ def calculate_all_metrics(model, test_loader):
 
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
+
+    # ── Rücktransformation aus Log-Raum ──
+    if log_target:
+        y_true = np.exp(y_true) - 1e-6
+        y_pred = np.exp(y_pred) - 1e-6
+        y_pred = np.maximum(y_pred, 0)  # Negative Werte nach exp abfangen
 
     mse = mean_squared_error(y_true, y_pred)
     rmse = np.sqrt(mse)
@@ -81,7 +88,7 @@ def save_split_boundaries(train_df, val_df, test_df, save_path):
 
 
 def evaluate_and_store_full_predictions(model, full_ds, output_dir,
-                                        x_full, scaler_y, batch_size: int = 256):
+                                        x_full, scaler_y, log_target= True, batch_size: int = 256):
     """
     Führt Vorhersage auf dem gesamten Datensatz durch und speichert:
     - predictions_full.npy
@@ -95,6 +102,7 @@ def evaluate_and_store_full_predictions(model, full_ds, output_dir,
     :param output_dir: Zielverzeichnis für die gespeicherten Dateien
     :param x_full:     Vollständige skalierte Eingabematrix
     :param scaler_y:   Scaler für die Zielvariable
+    :param log_target: True wenn Zielvariable log-transformiert ist
     :param batch_size: Batch-Größe für den DataLoader (beeinflusst nur Speicher nicht Ergebnis)
     """
     model.eval()
@@ -119,8 +127,23 @@ def evaluate_and_store_full_predictions(model, full_ds, output_dir,
 
     os.makedirs(output_dir, exist_ok=True)
 
-    np.save(os.path.join(output_dir, "predictions_full.npy"), y_pred)
-    np.save(os.path.join(output_dir, "y_true_full.npy"), y_true)
+
+    # ── Log-Raum-Werte speichern (für Debugging) ──
+    np.save(os.path.join(output_dir, "predictions_log.npy"), y_pred)
+    np.save(os.path.join(output_dir, "y_true_log.npy"), y_true)
+
+    # ── Rücktransformation ──
+    if log_target:
+        y_true_orig = np.exp(y_true) - 1e-6
+        y_pred_orig = np.exp(y_pred) - 1e-6
+        y_pred_orig = np.maximum(y_pred_orig, 0)
+    else:
+        y_true_orig = y_true
+        y_pred_orig = y_pred
+
+    # ── Originalskala-Werte speichern (für Plots und Metriken) ──
+    np.save(os.path.join(output_dir, "predictions_full.npy"), y_pred_orig)
+    np.save(os.path.join(output_dir, "y_true_full.npy"), y_true_orig)
     np.save(os.path.join(output_dir, "dates_full.npy"), timestamps_collected)
     np.save(os.path.join(output_dir, "X_full.npy"), x_full)
 

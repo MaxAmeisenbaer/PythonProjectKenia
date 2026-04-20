@@ -164,7 +164,7 @@ def run(scenario):
         train_ds, val_ds, model_config, n_features)
 
     # Metriken berechnen
-    metrics_result = calculate_all_metrics(model, test_ds)
+    metrics_result = calculate_all_metrics(model, test_ds, log_target=True)
     model_name = generate_model_name(config_name, target_feature)
 
     # Modell speichern
@@ -197,7 +197,8 @@ def run(scenario):
             full_ds=full_ds,
             output_dir=output_dir,
             x_full=x_full,
-            scaler_y=scaler_y
+            scaler_y=scaler_y,
+            log_target=True
         )
 
     return {
