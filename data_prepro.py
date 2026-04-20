@@ -4,7 +4,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
-from log_transformation import log_transform_precipitation, log_transform_rightskew_columns
+from log_transformation import log_transform_log1p, log_transform_rightskew, analyze_skewness
 
 # ── Schwellenwert: Stationen mit mehr NaN-Anteil werden ausgeschlossen ──
 MAX_PREC_NAN_RATIO = 0.20
@@ -164,13 +164,23 @@ def load_data(stations, measurements, interval="10min"):
 
     df = pd.concat(frames, axis=1)
 
-    # log-Transformation für Niederschlagsdaten
-    df=log_transform_precipitation(df)
+    # Skewness-Analyse
+    skew_dict = analyze_skewness(df)
 
-    #log-Transformation Abfluss & Nitrat
-    log_cols = [c for c in df.columns if c.endswith(("_disch","_nit"))]
-    if log_cols:
-        df = log_transform_rightskew_columns(df, log_cols)
+
+    #log-Transformation je nach skew und Anteil von Nullwerten
+    for col, stats in skew_dict.items():
+        s = stats["skew"]
+        pz = stats["pct_zero"]
+
+        if s > 1 and pz > 10:
+            #log1p
+            df = log_transform_log1p(df, col)
+        elif s > 1:
+            #log(x + 1e-6)
+            df = log_transform_rightskew(df, col, epsilon=1e-6)
+        else:
+            pass
 
     # ── NaN-Behandlung nach Zusammenführung ──
     n_before = len(df)
