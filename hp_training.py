@@ -33,7 +33,7 @@ def objective(trial):
     (train_ds, val_ds, test_ds,
      train_df, test_df, val_df,
      x_full, full_ds,
-     timestamps_full, scaler_y) = create_final_ds(
+     timestamps_full, _ , _ ) = create_final_ds(
         station="SHA",
         stations=stations,
         measurements=measurements,
@@ -90,7 +90,7 @@ best = study.best_params
 (train_ds, val_ds, test_ds,
  train_df, test_df, val_df,
  x_full, full_ds,
- timestamps_full, scaler_y) = create_final_ds(
+ timestamps_full, _ , _ ) = create_final_ds(
     station="SHA",
     stations=stations,
     measurements=measurements,
