@@ -9,7 +9,7 @@ import pandas as pd
 from log_transformation import inverse_log_transform
 
 
-def calculate_all_metrics(model, test_loader, log_target="Kein log"):
+def calculate_all_metrics(model, test_loader, log_target):
     """
     Bewertet ein trainiertes Modell auf einem Test-Datensatz und berechnet verschiedene Regressionsmetriken.
 
@@ -32,10 +32,7 @@ def calculate_all_metrics(model, test_loader, log_target="Kein log"):
     y_pred = np.array(y_pred)
 
     # ── Rücktransformation aus Log-Raum ──
-    if log_target=="log_eps":
-        y_true, y_pred = inverse_log_transform(y_true, y_pred, method= "log_eps")
-    elif log_target=="log1p":
-        y_true, y_pred = inverse_log_transform(y_true, y_pred, method= "log1p")
+    y_true, y_pred = inverse_log_transform(y_true, y_pred, method= log_target)
 
     mse = mean_squared_error(y_true, y_pred)
     rmse = np.sqrt(mse)
@@ -135,13 +132,7 @@ def evaluate_and_store_full_predictions(model, full_ds, output_dir,
     np.save(os.path.join(output_dir, "y_true_log.npy"), y_true)
 
     # ── Rücktransformation ──
-    if log_target == "log_eps":
-        y_true_orig, y_pred_orig = inverse_log_transform(y_true,y_pred, method= "log_eps")
-    elif log_target == "log1p":
-        y_true_orig, y_pred_orig = inverse_log_transform(y_true,y_pred, method= "log1p")
-    else:
-        y_true_orig = y_true
-        y_pred_orig = y_pred
+    y_true_orig, y_pred_orig = inverse_log_transform(y_true, y_pred, method= log_target)
 
     # ── Originalskala-Werte speichern (für Plots und Metriken) ──
     np.save(os.path.join(output_dir, "predictions_full.npy"), y_pred_orig)

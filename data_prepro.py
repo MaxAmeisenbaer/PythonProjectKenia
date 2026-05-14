@@ -4,7 +4,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
-from log_transformation import log_transform_log1p, log_transform_rightskew, analyze_skewness
+from log_transformation import log_transform_log1p, log_transform_eps, boxcox_transform, analyze_skewness
 
 # ── Schwellenwert: Stationen mit mehr NaN-Anteil werden ausgeschlossen ──
 MAX_PREC_NAN_RATIO = 0.20
@@ -171,27 +171,29 @@ def load_data(stations, measurements, target_feature, interval="10min"):
 
 
     #log-Transformation je nach skew und Anteil von Nullwerten
+    log_target = {"type": "none", "params": None}
     for col, stats in skew_dict.items():
         s = stats["skew"]
         pz = stats["pct_zero"]
-        if col == target_feature:
-            if s > 1:
-                log_target = "log_eps"
-            elif s > 1 and pz > 10:
-                log_target = "log1p"
-            else:
-                log_target = "Kein log"
-        else:
-            pass
 
         if s > 1 and pz > 10:
             #log1p
             df = log_transform_log1p(df, col)
+            if col == target_feature:
+                log_target = {"type": "log1p", "params": None}
         elif s > 1:
             #log(x + 1e-6)
-            df = log_transform_rightskew(df, col, epsilon=1e-6)
+            df = log_transform_eps(df, col, epsilon=1e-6)
+            if col == target_feature:
+                log_target = {"type": "log_eps", "params": {"epsilon": 1e-6}}
+        elif 0.5 < s <= 1:
+            #boxcox-transformation
+            df, params = boxcox_transform(df, col)
+            if col == target_feature:
+                log_target = {"type": "boxcox", "params": params}
         else:
-            pass
+            if col == target_feature:
+                log_target = {"type": "none", "params": None}
 
     # ── NaN-Behandlung nach Zusammenführung ──
     n_before = len(df)
