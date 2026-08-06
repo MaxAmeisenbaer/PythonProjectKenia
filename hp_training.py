@@ -71,9 +71,11 @@ def objective(trial):
 
 # --- Studie erstellen und Suche starten ---
 study = optuna.create_study(
+    study_name="lstm_tuning",
+    storage="sqlite:///optuna_study.db",
     direction="minimize",
     sampler=optuna.samplers.TPESampler(seed=42), #Bayessche Optimierung
-    study_name="lstm_tuning"
+    load_if_exists=True
 )
 
 study.optimize(objective, n_trials=20)
