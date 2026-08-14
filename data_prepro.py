@@ -22,14 +22,23 @@ def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
     start_date = "2015-04-28 11:00:00"
     end_date = "2019-11-21 12:00:00"
 
-    df = pd.read_csv(filepath)
-    df = df[df["date"].str.endswith(valid_time_suffix)] if valid_time_suffix else df
+    chunk_iter = pd.read_csv(filepath,
+                     dtype={"value": "float32"},
+                     parse_dates=["date"],
+                     infer_datetime_format=True,
+                     chunksize=200_000
+                     )
 
-    df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d %H:%M:%S")
-    df = df[(df["date"] >= pd.to_datetime(start_date)) & (df["date"] <= pd.to_datetime(end_date))]
-    df.set_index("date", inplace=True)
+    filtered_chunks = []
+    for chunk in chunk_iter:
+        if valid_time_suffix:
+            chunk = chunk[chunk["date"].dt.strftime("%H:%M").str.endswith(valid_time_suffix[:-1])]
+        mask = (chunk["date"] >= pd.to_datetime(start_date)) & \
+               (chunk["date"] <= pd.to_datetime(end_date))
+        chunk = chunk.loc[mask]
+        filtered_chunks.append(chunk.set_index("date", drop=True))
 
-    return df
+    return pd.concat(filtered_chunks, axis=0, copy=False)
 
 
 def create_standard_measurement_df(filename, measure, interval, directory="Data"):
@@ -50,6 +59,7 @@ def create_standard_measurement_df(filename, measure, interval, directory="Data"
     station = filename.split("-")[0]
     colname = f"{station}_{measure}"
     df.rename(columns={"value": colname}, inplace=True)
+    df[colname] = df[colname].astype('float32')
 
     return df
 
@@ -59,14 +69,13 @@ def create_precipitation_df(station, interval, directory="Data"):
     Erstellt aus einer Niederschlagsdatei einen summierten, interpolierten DataFrame,
     basierend auf einem vorgegebenen Zeitindex.
 
-    :param reference_times: Zeitindex zur Synchronisierung (z.B. von einer Referenzstation)
     :param station: Stationskürzel
     :param interval: Zeitintervall für das Resampling
     :param directory: Datenverzeichnis
     :return: Aufbereiteter DataFrame mit summierten Niederschlagswerten
     """
     filepath = os.path.join(directory, f"{station}-prec.csv")
-    df = load_and_trim_dataframe(filepath, valid_time_suffix=None)
+    df = load_and_trim_dataframe(filepath, valid_time_suffix=None) #None, weil Prec-Daten summiert werden müssen
     df.rename(columns={"value": f"{station}_prec"}, inplace=True)
 
     df = df.resample(interval).sum(min_count=1)
@@ -143,7 +152,6 @@ def load_data(stations, measurements, target_feature, interval="10min"):
     """
     filenames = create_filenames(stations, measurements)
     frames = []
-    log_target = ""
 
     for filename in filenames:
         measure = filename.split("-")[1].split(".")[0]
@@ -221,7 +229,6 @@ def split_dataset(df, split_ratios=(0.6, 0.2, 0.2)):
     Teilt den DataFrame in Trainings-, Validierungs- und Testset gemäß gegebenem Verhältnis.
 
     :param df: Vollständiger DataFrame
-    :param target_feature: Name der Zielvariable
     :param split_ratios: Tuple mit (Train, Val, Test)-Anteilen
     :return: train_df, val_df, test_df
     """
@@ -287,7 +294,7 @@ def make_dataloaders(
     y_train, y_val, y_test,
     seq_length: int,
     batch_size: int,
-    num_workers: int = 0
+    num_workers: int = 4
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     """
     Erzeugt PyTorch DataLoader für Training, Validierung und Test.
@@ -311,19 +318,22 @@ def make_dataloaders(
         train_ds,
         batch_size=batch_size,
         shuffle=True,          # ← True/False - kann geändert werden - True bei Zeitreihen in Training oft üblich
-        num_workers=num_workers
+        num_workers=num_workers,
+        pin_memory=True
     )
     val_loader = DataLoader(
         val_ds,
         batch_size=batch_size,
         shuffle=False,         # ← Validierung/Test nie shufflen
-        num_workers=num_workers
+        num_workers=num_workers,
+        pin_memory=True
     )
     test_loader = DataLoader(
         test_ds,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=num_workers
+        num_workers=num_workers,
+        pin_memory=True
     )
     return train_loader, val_loader, test_loader
 
@@ -337,19 +347,24 @@ class TimeSeriesDataset(Dataset):
     :param seq_length: Anz np.ndarray, seq_length: int):
     """
     def __init__(self, data: np.ndarray, target: np.ndarray, seq_length: int):
-        # Analog zur alten Logik: data[:-seq_length], target[seq_length:]
-        self.data   = torch.tensor(data[:-seq_length],   dtype=torch.float32)
-        self.target = torch.tensor(target[seq_length:],  dtype=torch.float32)
+        # Analog zu: data[:-seq_length], target[seq_length:]
+        if data.dtype != np.float32:
+            data = data.astype(np.float32, copy=False)
+        if target.dtype != np.float32:
+            target = target.astype(np.float32, copy=False)
+        self.data   = torch.from_numpy(
+            np.lib.stride_tricks.sliding_window_view(data, seq_length, axis=0)[0]).float()
+        self.target = torch.from_numpy(
+            target[seq_length:].reshape(-1, 1)).float()
         self.seq_length = seq_length
 
     def __len__(self) -> int:
-        # Anzahl möglicher Sequenzen
-        return len(self.data) - self.seq_length + 1
+        # Anzahl Sliding-Window-Länge
+        return self.data.shape[0]
 
     def __getitem__(self, idx: int):
-        x = self.data[idx : idx + self.seq_length]   # Shape: [seq_length, n_features]
-        y = self.target[idx]                          # Shape: [1]
-        return x, y
+        # Rückgabe des Tensor-Windows und das Ziel-Tensor
+        return self.data[idx], self.target[idx]
 
 class TimeSeriesDatasetWithTimestamps(Dataset):
     """
@@ -400,10 +415,11 @@ def create_final_ds(
              train_df, test_df, val_df,
              x_full, full_dataset, timestamps_full, log_target, scaler_y
     """
-    # Daten laden
+    # Daten laden (hdf aus Performance-Gründen)
     df, log_target = load_data(stations, measurements, target_feature, interval=interval)
-    df.to_pickle(f"{station}-dataframe.pkl")
+    df.to_hdf(f"{station}.h5", key="data", mode = "w")
     df.drop(columns=df.columns[df.columns.duplicated()], inplace=True)
+    df = pd.read_hdf(f"{station}.h5", key="data")
 
     # Split
     train_df, val_df, test_df = split_dataset(df)
