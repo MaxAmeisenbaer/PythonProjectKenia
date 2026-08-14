@@ -23,9 +23,8 @@ def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
     end_date = "2019-11-21 12:00:00"
 
     chunk_iter = pd.read_csv(filepath,
-                     dtype={"value": "float32"},
+                     dtype={"value": np.float32},
                      parse_dates=["date"],
-                     infer_datetime_format=True,
                      chunksize=200_000
                      )
 
