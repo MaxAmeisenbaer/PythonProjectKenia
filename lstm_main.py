@@ -207,4 +207,4 @@ def run(scenario):
 
 
 if __name__ == "__main__":
-    run(scenario="benchmark")
+    run(scenario="test_code")
