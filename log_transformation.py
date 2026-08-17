@@ -118,5 +118,7 @@ def inverse_log_transform(y_true, y_pred, method, epsilon=1e-6):
         y_true = inv_boxcox(y_true) - shift
         y_pred = inv_boxcox(y_pred) - shift
         return y_true, y_pred
+    elif method["type"] == "none":
+        return y_true, y_pred
     else:
         raise ValueError(f"Unbekannte Methode: {method}")
