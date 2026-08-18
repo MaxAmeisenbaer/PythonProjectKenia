@@ -2,6 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 import torch
+import pyarrow as pa
+import pyarrow.parquet as pq
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
 from log_transformation import log_transform_log1p, log_transform_eps, boxcox_transform, analyze_skewness
@@ -31,10 +33,12 @@ def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
     filtered_chunks = []
     for chunk in chunk_iter:
         if valid_time_suffix:
-            chunk = chunk[chunk["date"].dt.strftime("%H:%M").str.endswith(valid_time_suffix[:-1])]
-        mask = (chunk["date"] >= pd.to_datetime(start_date)) & \
+            minutes = int(valid_time_suffix.split(":")[1])
+            mask_min = chunk["date"].dt.minute % 10 == minutes
+            chunk = chunk[mask_min]
+        mask_date = (chunk["date"] >= pd.to_datetime(start_date)) & \
                (chunk["date"] <= pd.to_datetime(end_date))
-        chunk = chunk.loc[mask]
+        chunk = chunk.loc[mask_date]
         filtered_chunks.append(chunk.set_index("date", drop=True))
 
     return pd.concat(filtered_chunks, axis=0, copy=False)
@@ -209,8 +213,11 @@ def load_data(stations, measurements, target_feature, interval="10min"):
     # 1. Interpolation für kleine innere Lücken (limit begrenzt max. Lückenlänge)
     df = df.interpolate(method="time", limit=6)
 
-    # 2. Restliche NaN-Zeilen entfernen (Ränder, wo keine Interpolation möglich)
-    df = df.dropna()
+    print(df.isna().sum().head())
+
+    # 2. Restliche NaN-Zeilen füllen
+    df = df.ffill().bfill()
+    df = df.fillna(df.mean())
 
     n_after = len(df)
     nan_count_after = df.isna().sum().sum()
@@ -352,9 +359,13 @@ class TimeSeriesDataset(Dataset):
         if target.dtype != np.float32:
             target = target.astype(np.float32, copy=False)
         self.data   = torch.from_numpy(
-            np.lib.stride_tricks.sliding_window_view(data, seq_length, axis=0)[0]).float()
+            np.lib.stride_tricks.sliding_window_view(data, seq_length, axis=0)).float()
         self.target = torch.from_numpy(
-            target[seq_length:].reshape(-1, 1)).float()
+            target[seq_length-1:]).float() #vllt zusätzlich .reshape(-1, 1)
+        # Transposieren von Feature-Menge und Seq-Length in Dimensionen (Standartisierung)
+        if self.data.shape[2] == seq_length:
+            self.data = self.data.transpose(1,2)
+
         self.seq_length = seq_length
 
     def __len__(self) -> int:
@@ -363,7 +374,9 @@ class TimeSeriesDataset(Dataset):
 
     def __getitem__(self, idx: int):
         # Rückgabe des Tensor-Windows und das Ziel-Tensor
-        return self.data[idx], self.target[idx]
+        x = self.data[idx]
+        y = self.target[idx]
+        return x, y
 
 class TimeSeriesDatasetWithTimestamps(Dataset):
     """
@@ -414,11 +427,15 @@ def create_final_ds(
              train_df, test_df, val_df,
              x_full, full_dataset, timestamps_full, log_target, scaler_y
     """
-    # Daten laden (hdf aus Performance-Gründen)
+    # Daten laden (parquet aus Performance-Gründen)
     df, log_target = load_data(stations, measurements, target_feature, interval=interval)
-    df.to_hdf(f"{station}.h5", key="data", mode = "w")
+    df.reset_index().to_parquet(f"{station}.parquet",engine="pyarrow", compression="snappy",index=False)
     df.drop(columns=df.columns[df.columns.duplicated()], inplace=True)
-    df = pd.read_hdf(f"{station}.h5", key="data")
+    df = pd.read_parquet(f"{station}.parquet")
+    df.set_index("date", inplace=True)
+
+    df = df.loc[:, df.apply(pd.Series.nunique) > 0]
+    df = df.apply(pd.to_numeric,errors="coerce")
 
     # Split
     train_df, val_df, test_df = split_dataset(df)
@@ -431,7 +448,7 @@ def create_final_ds(
         train_df, val_df, test_df, target_feature
     )
 
-    # DataLoader erstellen  ← einzige tf-Abhängigkeit ersetzt
+    # DataLoader erstellen
     train_loader, val_loader, test_loader = make_dataloaders(
         x_train, x_val, x_test,
         y_train, y_val, y_test,
@@ -452,6 +469,8 @@ def create_final_ds(
     full_dataset = TimeSeriesDatasetWithTimestamps(
         x_full, y_full, timestamps_full, seq_length
     )
+    print('x_train.shape :', x_train.shape)
+    print('y_train.shape :', y_train.shape)
 
     return (train_loader, val_loader, test_loader,
             train_df, test_df, val_df,
