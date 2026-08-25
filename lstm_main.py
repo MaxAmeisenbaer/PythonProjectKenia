@@ -142,13 +142,13 @@ def run(scenario):
         raise ValueError(f"Unbekanntes Szenario: {scenario}")
 
     model_config = {
-        "nodes_lstm": 100,
-        "nodes_dense": 64,
+        "nodes_lstm": 20,
+        "nodes_dense": 0,
         "dropout": 0.2,
-        "learning_rate": 0.001,
-        "num_layers": 2,
-        "batch_size": 64,
-        "seq_length": 18,
+        "learning_rate": 0.01,
+        "num_layers": 3,
+        "batch_size": 32,
+        "seq_length": 32,
         "epochs": 70
     }
 
