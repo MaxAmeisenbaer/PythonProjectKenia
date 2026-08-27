@@ -213,7 +213,6 @@ def load_data(stations, measurements, target_feature, interval="10min"):
     # 1. Interpolation für kleine innere Lücken (limit begrenzt max. Lückenlänge)
     df = df.interpolate(method="time", limit=6)
 
-    print(df.isna().sum().head())
 
     # 2. Restliche NaN-Zeilen füllen
     df = df.ffill().bfill()
