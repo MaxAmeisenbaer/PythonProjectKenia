@@ -148,7 +148,7 @@ def run(scenario):
         "learning_rate": 0.01,
         "num_layers": 3,
         "batch_size": 32,
-        "seq_length": 6,
+        "seq_length": 32,
         "epochs": 70
     }
 
