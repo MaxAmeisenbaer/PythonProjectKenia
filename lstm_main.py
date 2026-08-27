@@ -14,6 +14,7 @@ from not_soil_szenario_sha import get_not_soil_config
 from not_water_qual_szenario_sha import get_not_water_qual_config
 from not_water_lvl_szenario_sha import get_not_water_lvl_config
 from not_temp_szenario_sha import get_not_temp_config
+from not_wind_szenario_sha import get_not_wind_config
 from test_code_szenario import get_test_code_config
 from evaluate_model import calculate_all_metrics, save_split_boundaries, evaluate_and_store_full_predictions
 from not_lyser_szenario_sha import get_not_lyser_config
@@ -151,6 +152,8 @@ def run(scenario):
         stations, measurements, target_feature, config_name = get_not_water_lvl_config()
     elif scenario == "not_temp":
         stations, measurements, target_feature, config_name = get_not_temp_config()
+    elif scenario == "not_wind":
+        stations, measurements, target_feature, config_name = get_not_wind_config()
     elif scenario == "test_code":
         stations, measurements, target_feature, config_name = get_test_code_config()
     else:
@@ -222,4 +225,4 @@ def run(scenario):
 
 
 if __name__ == "__main__":
-    run(scenario="not_temp")
+    run(scenario="not_wind")
