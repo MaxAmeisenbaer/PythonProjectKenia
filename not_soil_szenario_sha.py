@@ -1,5 +1,5 @@
 def get_not_soil_config():
-    config_name = "benchmark"
+    config_name = "not_soil"
     stations = ["SHA", "WSH", "TTP", "TF2", "NF", "Kur", "KFS", "Fun", "Fin", "Cha", "Chi"]
 
     measurements = {
