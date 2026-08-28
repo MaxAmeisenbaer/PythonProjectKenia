@@ -104,12 +104,12 @@ def plot_predictions_test_timeline(model_folder, output_path, szenario, boundari
     full_timestamps = full_timestamps[start_index:]
 
     fig, ax = plt.subplots(figsize=(15, 4))
-    ax.plot(full_timestamps, y_true, label='Messwert', color="black", linewidth=1.2)
-    ax.plot(full_timestamps, y_pred, label='Vorhersage', color="red", linewidth=1.2, linestyle='--')
+    ax.plot(full_timestamps, y_true, label='Measurement', color="black", linewidth=1.2)
+    ax.plot(full_timestamps, y_pred, label='Prediction', color="red", linewidth=1.2, linestyle='--')
 
     ax.set_title(szenario, fontsize = 18)
-    ax.set_xlabel("Zeit", fontsize = 14)
-    ax.set_ylabel("Nitrat [mg/L]", fontsize = 14)
+    ax.set_xlabel("Time", fontsize = 14)
+    ax.set_ylabel("nitrate [mg/L]", fontsize = 14)
     ax.legend(fontsize = 10)
     plt.tight_layout()
 
