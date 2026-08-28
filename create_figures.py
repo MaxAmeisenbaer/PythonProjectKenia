@@ -81,6 +81,42 @@ def plot_predictions_full_timeline(model_folder, output_path, szenario, boundari
     fig.savefig(os.path.join(output_path, f"{szenario}_zeitreihe.png"))
     plt.close(fig)
 
+def plot_predictions_test_timeline(model_folder, output_path, szenario, boundaries):
+    """
+    Erstellt eine Zeitreihengrafik für Messwerte und Vorhersagen über den Testdatenzeitraum
+
+    :param model_folder: Pfad zum Modellordner
+    :param output_path: Pfad zum Ausgabeverzeichnis
+    :param szenario: Name des Szenarios (z.B. "benchmark")
+    """
+    y_pred, y_true, full_timestamps = load_predictions(model_folder)
+
+    if len(full_timestamps) != len(y_pred):
+        raise ValueError(f"Längen passen nicht: {len(full_timestamps)} vs. {len(y_pred)}")
+
+    # Start-Zeitpunkt aus Boundaries holen und Start-Index daraus ermitteln
+    test_start_time = pd.to_datetime(boundaries["test"][0])
+    start_index = np.searchsorted(full_timestamps, test_start_time)
+
+    # Synchrones Schneiden aller Arrays
+    y_pred = y_pred[start_index:]
+    y_true = y_true[start_index:]
+    full_timestamps = full_timestamps[start_index:]
+
+    fig, ax = plt.subplots(figsize=(15, 4))
+    ax.plot(full_timestamps, y_true, label='Messwert', color="black", linewidth=1.2)
+    ax.plot(full_timestamps, y_pred, label='Vorhersage', color="red", linewidth=1.2, linestyle='--')
+
+    ax.set_title(szenario, fontsize = 18)
+    ax.set_xlabel("Zeit", fontsize = 14)
+    ax.set_ylabel("Nitrat [mg/L]", fontsize = 14)
+    ax.legend(fontsize = 10)
+    plt.tight_layout()
+
+    os.makedirs(output_path, exist_ok=True)
+    fig.savefig(os.path.join(output_path, f"{szenario}_zeitreihe.png"))
+    plt.close(fig)
+
 
 
 def plot_scatter(model_folder, output_folder, szenario):
@@ -145,7 +181,7 @@ def combine_scatter_plots(image_names, input_folder, output_path, dpi=300):
 
 
 
-def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir):
+def plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir):
     """
     Führt die Erstellung von Zeitreihen- und Scatterplots für alle angegebenen Szenarien durch.
 
@@ -172,18 +208,54 @@ def plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scat
         plot_scatter(model_path, output_scatter_dir, szenario)
 
 
+def plot_models_data_type_exclusion(szenarien, base_model_dir, output_zeitreihe_dir):
+    """
+    Führt die Erstellung von Zeitreihenplots für alle angegebenen Szenarien durch.
+
+    :param szenarien: Liste der Szenarien (z.B. ["benchmark", "low_input", ...])
+    :param base_model_dir: Basisordner, in dem die Modelle gespeichert sind
+    :param output_zeitreihe_dir: Zielordner für Zeitreihengrafiken
+    """
+    for szenario in szenarien:
+        model_path = os.path.join(base_model_dir, szenario)
+        if szenario == "benchmark":
+            split_info = "LSTM_SHA_benchmark_nit_001_split_boundaries.csv"
+        elif szenario == "not_prec":
+            split_info = "LSTM_SHA_not_prec_nit_001_split_boundaries.csv"
+        elif szenario == "not_soil":
+            split_info = "LSTM_SHA_not_soil_nit_001_split_boundaries.csv"
+        elif szenario == "not_water_qual":
+            split_info = "LSTM_SHA_not_water_qual_nit_001_split_boundaries.csv"
+        elif szenario == "not_water_lvl":
+            split_info = "LSTM_SHA_not_water_lvl_nit_001_split_boundaries.csv"
+        elif szenario == "not_temp":
+            split_info = "LSTM_SHA_not_temp_nit_001_split_boundaries.csv"
+        elif szenario == "not_wind":
+            split_info = "LSTM_SHA_not_wind_nit_001_split_boundaries.csv"
+        elif szenario == "not_ec":
+            split_info = "LSTM_SHA_not_ec_nit_001_split_boundaries.csv"
+        elif szenario == "not_atmos":
+            split_info = "LSTM_SHA_not_atmos_nit_001_split_boundaries.csv"
+        else:
+            raise ValueError(f"Unbekannter Modellordner: {szenario}")
+
+        boundaries = load_split_boundaries(model_path, split_info)
+        plot_predictions_test_timeline(model_path, output_zeitreihe_dir, szenario, boundaries)
+
+
 def main():
     """
     Hauptfunktion: erstellt Zeitreihen- und Scatterplots für alle Szenarien
     und kombiniert die Scatterplots in einem 2x2-Gesamtbild.
     """
-    szenarien = ["benchmark", "low_input", "not_lyser", "not_nit"]
+    szenarien = ["benchmark", "low_input", "not_lyser", "not_nit","not_prec","not_soil", "not_water_qual",
+                 "not_water_lvl","not_temp", "not_wind", "not_ec", "not_atmos"]
     base_model_dir = "models"
     output_zeitreihe_dir = "figures/zeitreihe"
     output_scatter_dir = "figures/scatter"
 
 
-    plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir)
+    plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir)
 
     image_list = [
         "benchmark_scatter.png",
@@ -199,8 +271,8 @@ def main():
     )
 
 
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+#    main()
 
 
 def test_single_model():
@@ -213,8 +285,22 @@ def test_single_model():
     output_scatter_dir = "figures/scatter"
 
 
-    plot_all_models(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir)
+    plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir)
 
 
 #if __name__ == "__main__":
 #    test_single_model()
+
+def data_type_exclusion_graphs():
+    """
+    Plot-Erstellung für alle Szenarien der data_typ exklusion (nur der test-Zeitabschnitt) (nur zeitreihe)
+    """
+    szenarien = ["benchmark", "not_prec","not_soil", "not_water_qual",
+                 "not_water_lvl","not_temp", "not_wind", "not_ec", "not_atmos"]
+    base_model_dir = "models"
+    output_zeitreihe_dir = "figures/zeitreihe"
+
+    plot_models_data_type_exclusion(szenarien, base_model_dir, output_zeitreihe_dir)
+
+if __name__ == "__main__":
+    data_type_exclusion_graphs()
