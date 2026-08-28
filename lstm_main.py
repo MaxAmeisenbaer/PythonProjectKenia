@@ -231,4 +231,4 @@ def run(scenario):
 
 
 if __name__ == "__main__":
-    run(scenario="not_atmos")
+    run(scenario="benchmark")
