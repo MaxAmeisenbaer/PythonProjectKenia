@@ -103,14 +103,14 @@ def plot_predictions_test_timeline(model_folder, output_path, szenario, boundari
     y_true = y_true[start_index:]
     full_timestamps = full_timestamps[start_index:]
 
-    fig, ax = plt.subplots(figsize=(15, 4))
+    fig, ax = plt.subplots(figsize=(20, 10))
     ax.plot(full_timestamps, y_true, label='Measurement', color="black", linewidth=1.2)
     ax.plot(full_timestamps, y_pred, label='Prediction', color="red", linewidth=1.2, linestyle='--')
 
-    ax.set_title(szenario, fontsize = 18)
-    ax.set_xlabel("Time", fontsize = 14)
-    ax.set_ylabel("nitrate [mg/L]", fontsize = 14)
-    ax.legend(fontsize = 10)
+    ax.set_title(szenario, fontsize = 28)
+    ax.set_xlabel("Time", fontsize = 24)
+    ax.set_ylabel("nitrate [mg/L]", fontsize = 24)
+    ax.legend(fontsize = 20)
     plt.tight_layout()
 
     os.makedirs(output_path, exist_ok=True)
