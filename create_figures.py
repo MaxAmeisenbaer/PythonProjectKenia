@@ -103,7 +103,7 @@ def plot_predictions_test_timeline(model_folder, output_path, szenario, boundari
     y_true = y_true[start_index:]
     full_timestamps = full_timestamps[start_index:]
 
-    fig, ax = plt.subplots(figsize=(20, 10))
+    fig, ax = plt.subplots(figsize=(20, 8))
     ax.plot(full_timestamps, y_true, label='Measurement', color="black", linewidth=1.2)
     ax.plot(full_timestamps, y_pred, label='Prediction', color="red", linewidth=1.2, linestyle='--')
 
