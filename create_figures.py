@@ -109,7 +109,7 @@ def plot_predictions_test_timeline(model_folder, output_path, szenario, boundari
 
     ax.set_title(szenario, fontsize = 28)
     ax.set_xlabel("Time", fontsize = 24)
-    ax.set_ylabel("nitrate [mg/L]", fontsize = 24)
+    ax.set_ylabel("nitrate [mg L⁻¹]", fontsize = 24)
     ax.legend(fontsize = 20)
     plt.tight_layout()
 
