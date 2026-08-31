@@ -114,7 +114,7 @@ def plot_predictions_test_timeline(model_folder, output_path, szenario, boundari
     plt.tight_layout()
 
     os.makedirs(output_path, exist_ok=True)
-    fig.savefig(os.path.join(output_path, f"{szenario}_zeitreihe.pdf"), format = "pdf", bbox_inches='tight')
+    fig.savefig(os.path.join(output_path, f"{szenario}_zeitreihe.svg"), format = "svg", bbox_inches='tight')
     plt.close(fig)
 
 
