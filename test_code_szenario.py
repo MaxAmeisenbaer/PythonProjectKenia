@@ -4,8 +4,9 @@ def get_test_code_config():
 
     measurements = {
         "SHA": ["disch", "nit"],
+        "TTP": ["nit"],
         "Fun": ["prec"]
     }
-    target_feature = "SHA_nit"
+    target_features = ["SHA_nit","TTP_nit"]
 
-    return stations, measurements, target_feature, config_name
+    return stations, measurements, target_features, config_name

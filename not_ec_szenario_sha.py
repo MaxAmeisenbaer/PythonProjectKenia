@@ -9,9 +9,9 @@ def get_not_ec_config():
     measurements = {
         "SHA": ["disch", "doc", "nit", "tcd", "toc", "tsp", "tur", "wl", "prec"],
         "WSH": ["dir", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind", "prec"],
-        "TTP": ["disch", "doc", "tcd", "toc", "tsp", "tur", "wl", "prec"],
+        "TTP": ["disch", "doc", "nit", "tcd", "toc", "tsp", "tur", "wl", "prec"],
         "TF2": ["temp", "prec"],
-        "NF": ["disch", "doc", "tcd", "toc", "tsp", "tur", "wl", "prec"],
+        "NF": ["disch", "doc", "nit", "tcd", "toc", "tsp", "tur", "wl", "prec"],
         "Kur": ["prec"],
         "KFS": ["dir", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind"],
         "Fun": ["prec"],
@@ -20,6 +20,6 @@ def get_not_ec_config():
         "Chi": ["prec"]
 
     }
-    target_feature = "SHA_nit"
+    target_features = ["SHA_nit", "TTP_nit", "NF_nit"]
 
-    return stations, measurements, target_feature, config_name
+    return stations, measurements, target_features, config_name

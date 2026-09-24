@@ -9,9 +9,9 @@ def get_not_water_qual_config():
     measurements = {
         "SHA": ["disch", "elc", "nit", "tcd", "tsp", "wl", "prec"],
         "WSH": ["dir", "ec15", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind", "prec"],
-        "TTP": ["disch", "elc", "tcd", "tsp", "wl", "prec"],
+        "TTP": ["disch", "elc", "nit", "tcd", "tsp", "wl", "prec"],
         "TF2": ["temp", "prec"],
-        "NF": ["disch", "elc", "tcd", "tsp", "wl", "prec"],
+        "NF": ["disch", "elc", "nit", "tcd", "tsp", "wl", "prec"],
         "Kur": ["prec"],
         "KFS": ["dir", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind"],
         "Fun": ["prec"],
@@ -20,6 +20,6 @@ def get_not_water_qual_config():
         "Chi": ["prec"]
 
     }
-    target_feature = "SHA_nit"
+    target_features = ["SHA_nit", "TTP_nit", "NF_nit"]
 
-    return stations, measurements, target_feature, config_name
+    return stations, measurements, target_features, config_name

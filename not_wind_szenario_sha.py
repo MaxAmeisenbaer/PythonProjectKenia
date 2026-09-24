@@ -9,9 +9,9 @@ def get_not_wind_config():
     measurements = {
         "SHA": ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl", "prec"],
         "WSH": ["ec15", "par", "rh", "stemp15", "temp", "vwc15", "prec"],
-        "TTP": ["disch", "doc", "elc", "tcd", "toc", "tsp", "tur", "wl", "prec"],
+        "TTP": ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl", "prec"],
         "TF2": ["temp", "prec"],
-        "NF": ["disch", "doc", "elc", "tcd", "toc", "tsp", "tur", "wl", "prec"],
+        "NF": ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl", "prec"],
         "Kur": ["prec"],
         "KFS": ["par", "rh", "stemp15", "temp", "vwc15"],
         "Fun": ["prec"],
@@ -20,6 +20,6 @@ def get_not_wind_config():
         "Chi": ["prec"]
 
     }
-    target_feature = "SHA_nit"
+    target_features = ["SHA_nit", "TTP_nit", "NF_nit"]
 
-    return stations, measurements, target_feature, config_name
+    return stations, measurements, target_features, config_name

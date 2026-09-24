@@ -5,12 +5,12 @@ def get_not_prec_config():
     measurements = {
         "SHA": ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl"],
         "WSH": ["dir", "ec15", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind"],
-        "TTP": ["disch", "doc", "elc", "tcd", "toc", "tsp", "tur", "wl"],
+        "TTP": ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl"],
         "TF2": ["temp"],
-        "NF": ["disch", "doc", "elc", "tcd", "toc", "tsp", "tur", "wl"],
+        "NF": ["disch", "doc", "elc", "nit", "tcd", "toc", "tsp", "tur", "wl"],
         "KFS": ["dir", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind"]
 
     }
-    target_feature = "SHA_nit"
+    target_features = ["SHA_nit", "TTP_nit", "NF_nit"]
 
-    return stations, measurements, target_feature, config_name
+    return stations, measurements, target_features, config_name

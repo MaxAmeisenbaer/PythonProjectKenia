@@ -5,9 +5,9 @@ def get_low_input_config():
     measurements = {
         "SHA": ["disch", "prec", "nit"],
         "WSH": ["gust","par", "rh","temp","wind","prec"],
-        "TTP": ["disch", "prec"],
+        "TTP": ["disch", "prec", "nit"],
         "TF2": ["temp","prec"],
-        "NF": ["disch", "prec"],
+        "NF": ["disch", "prec", "nit"],
         "Kur": ["prec"],
         "KFS": ["gust", "par", "rh","temp","wind"],
         "Fun": ["prec"],
@@ -15,6 +15,6 @@ def get_low_input_config():
         "Cha": ["prec"],
         "Chi": ["prec"]
     }
-    target_feature = "SHA_nit"
+    target_features = ["SHA_nit", "TTP_nit", "NF_nit"]
 
-    return stations, measurements, target_feature, config_name
+    return stations, measurements, target_features, config_name

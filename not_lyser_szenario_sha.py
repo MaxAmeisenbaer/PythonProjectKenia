@@ -5,9 +5,9 @@ def get_not_lyser_config():
     measurements = {
         "SHA": ["disch", "nit", "wl", "prec"],
         "WSH": ["dir", "ec15", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind", "prec"],
-        "TTP": ["disch", "wl", "prec"],
+        "TTP": ["disch", "nit", "wl", "prec"],
         "TF2": ["temp", "prec"],
-        "NF": ["disch", "wl", "prec"],
+        "NF": ["disch", "nit", "wl", "prec"],
         "Kur": ["prec"],
         "KFS": ["dir", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind"],
         "Fun": ["prec"],
@@ -16,6 +16,6 @@ def get_not_lyser_config():
         "Chi": ["prec"]
 
     }
-    target_feature = "SHA_nit"
+    target_features = ["SHA_nit", "TTP_nit", "NF_nit"]
 
-    return stations, measurements, target_feature, config_name
+    return stations, measurements, target_features, config_name
