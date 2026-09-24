@@ -143,15 +143,15 @@ def create_filenames(stations, measurements):
     return filenames
 
 
-def load_data(stations, measurements, target_feature, interval="10min"):
+def load_data(stations, measurements, target_features, interval="10min"):
     """
     Lädt, kombiniert und verarbeitet alle relevanten Zeitreihen (Messwerte und Niederschlag).
 
     :param stations: Liste der Stationsnamen
     :param measurements: Dictionary mit Messwertlisten je Station
-    :param target_feature: Boolscher Wert, über Angabe der Logarithmisierung des target-Features
+    :param target_features: Liste von Target-Features
     :param interval: Zeitintervall für das Resampling
-    :return: Kombinierter DataFrame aller Zeitreihen & Infos über target_feature logarithmisierung
+    :return: Kombinierter DataFrame aller Zeitreihen & Dictionary über Transformation der target-Features
     """
     filenames = create_filenames(stations, measurements)
     frames = []
@@ -161,7 +161,6 @@ def load_data(stations, measurements, target_feature, interval="10min"):
         frames.append(create_standard_measurement_df(filename, measure, interval=interval))
 
     # ── Niederschlag laden ──
-    print("\n=== Niederschlagsstationen ===")
     prec_frames = []
     for station in stations:
         if "prec" in measurements.get(station, []):
@@ -182,7 +181,7 @@ def load_data(stations, measurements, target_feature, interval="10min"):
 
 
     #log-Transformation je nach skew und Anteil von Nullwerten
-    log_target = {"type": "none", "params": None}
+    target_transformations = {}
     for col, stats in skew_dict.items():
         s = stats["skew"]
         pz = stats["pct_zero"]
@@ -190,21 +189,21 @@ def load_data(stations, measurements, target_feature, interval="10min"):
         if s > 1 and pz > 10:
             #log1p
             df = log_transform_log1p(df, col)
-            if col == target_feature:
-                log_target = {"type": "log1p", "params": None}
+            if col in target_features:
+                target_transformations[col] = {"type": "log1p", "params": None}
         elif s > 1:
             #log(x + 1e-6)
             df = log_transform_eps(df, col, epsilon=1e-6)
-            if col == target_feature:
-                log_target = {"type": "log_eps", "params": {"epsilon": 1e-6}}
+            if col in target_features:
+                target_transformations[col] = {"type": "log_eps", "params": {"epsilon": 1e-6}}
         elif 0.5 < s <= 1:
             #boxcox-transformation
             df, params = boxcox_transform(df, col)
-            if col == target_feature:
-                log_target = {"type": "boxcox", "params": params}
+            if col in target_features:
+                target_transformations[col] = {"type": "boxcox", "params": params}
         else:
-            if col == target_feature:
-                log_target = {"type": "none", "params": None}
+            if col in target_features:
+                target_transformations[col] = {"type": "none", "params": None}
 
     # ── NaN-Behandlung nach Zusammenführung ──
     n_before = len(df)
@@ -226,7 +225,7 @@ def load_data(stations, measurements, target_feature, interval="10min"):
           f" ({n_before - n_after} Zeilen entfernt)")
     # ── Ende NaN-Behandlung ──
 
-    return df, log_target
+    return df, target_transformations
 
 
 def split_dataset(df, split_ratios=(0.6, 0.2, 0.2)):
@@ -248,19 +247,19 @@ def split_dataset(df, split_ratios=(0.6, 0.2, 0.2)):
     return train_df, val_df, test_df
 
 
-def scale_features(train_df, val_df, test_df, target_feature):
+def scale_features(train_df, val_df, test_df, target_features):
     """
     Skaliert alle Merkmale außer der Zielvariablen mithilfe eines MinMax-Scalers.
 
     :param train_df: Trainingsdaten
     :param val_df: Validierungsdaten
     :param test_df: Testdaten
-    :param target_feature: Name der Zielvariable (nicht zu skalieren)
+    :param target_features: Name der Zielvariable (nicht zu skalieren)
     :return: Skalierte Arrays (train, val, test) und der verwendete Scaler
     """
     scaler = MinMaxScaler()
 
-    train_features = train_df.drop(columns=[target_feature])
+    train_features = train_df.drop(columns=target_features)
 
     # ── Sicherheitscheck ──
     if train_features.isna().any().any():
@@ -269,28 +268,34 @@ def scale_features(train_df, val_df, test_df, target_feature):
             f"NaN in Trainingsdaten vor Skalierung! Betroffene Spalten: {nan_cols}"
         )
 
-    scaler.fit(train_df.drop(columns=[target_feature]))
+    scaler.fit(train_features)
 
-    train_scaled = scaler.transform(train_df.drop(columns=[target_feature]))
-    val_scaled = scaler.transform(val_df.drop(columns=[target_feature]))
-    test_scaled = scaler.transform(test_df.drop(columns=[target_feature]))
+    train_scaled = scaler.transform(train_df.drop(columns=target_features))
+    val_scaled = scaler.transform(val_df.drop(columns=target_features))
+    test_scaled = scaler.transform(test_df.drop(columns=target_features))
 
     return train_scaled, val_scaled, test_scaled, scaler
 
 
-def prepare_targets(train_df, val_df, test_df, target_feature):
+def prepare_targets(train_df, val_df, test_df, target_features):
     """
     Extrahiert die Zielvariablen aus den DataFrames und wandelt sie in passende Numpy-Arrays um.
 
     :param train_df: Trainingsdaten
     :param val_df: Validierungsdaten
     :param test_df: Testdaten
-    :param target_feature: Name der Zielvariable
+    :param target_features: Name der Zielvariable
     :return: y_train, y_val, y_test als 2D-Arrays
     """
-    y_train = np.array(train_df[target_feature], ndmin=2).T
-    y_val = np.array(val_df[target_feature], ndmin=2).T
-    y_test = np.array(test_df[target_feature], ndmin=2).T
+    y_train = train_df[target_features].values.astype(np.float32)
+    y_val   = val_df[target_features].values.astype(np.float32)
+    y_test  = test_df[target_features].values.astype(np.float32)
+
+    #Legacy-Code, falls Probleme
+    #y_train = np.array(train_df[target_features], ndmin=2).T
+    #y_val = np.array(val_df[target_features], ndmin=2).T
+    #y_test = np.array(test_df[target_features], ndmin=2).T
+
     return y_train, y_val, y_test
 
 
@@ -414,7 +419,7 @@ def create_final_ds(
     station: str,
     stations: list,
     measurements: dict,
-    target_feature: str,
+    target_features: str,
     batch_size: int,
     seq_length: int,
     interval: str = "10min"
@@ -427,7 +432,7 @@ def create_final_ds(
              x_full, full_dataset, timestamps_full, log_target, scaler_y
     """
     # Daten laden (parquet aus Performance-Gründen)
-    df, log_target = load_data(stations, measurements, target_feature, interval=interval)
+    df, target_transformations = load_data(stations, measurements, target_features, interval=interval)
     df.reset_index().to_parquet(f"{station}.parquet",engine="pyarrow", compression="snappy",index=False)
     df.drop(columns=df.columns[df.columns.duplicated()], inplace=True)
     df = pd.read_parquet(f"{station}.parquet")
@@ -441,10 +446,10 @@ def create_final_ds(
 
     # Skalierung
     x_train, x_val, x_test, scaler = scale_features(
-        train_df, val_df, test_df, target_feature
+        train_df, val_df, test_df, target_features
     )
     y_train, y_val, y_test = prepare_targets(
-        train_df, val_df, test_df, target_feature
+        train_df, val_df, test_df, target_features
     )
 
     # DataLoader erstellen
@@ -456,12 +461,12 @@ def create_final_ds(
 
     # Zielvariable separat skalieren
     timestamps_full = df.index.to_numpy()
-    y_full          = np.array(df[target_feature], ndmin=2).T
+    y_full          = df[target_features].values.astype(np.float32)
     scaler_y        = MinMaxScaler()
     scaler_y.fit(y_full)
 
     # Vollständige Eingabematrix skalieren
-    x_full = scaler.transform(df.drop(columns=[target_feature]))
+    x_full = scaler.transform(df.drop(columns=target_features))
     x_full = np.clip(x_full, 0, 1)
 
     # Full-Dataset mit Zeitstempeln
@@ -473,4 +478,4 @@ def create_final_ds(
 
     return (train_loader, val_loader, test_loader,
             train_df, test_df, val_df,
-            x_full, full_dataset, timestamps_full, log_target, scaler_y)
+            x_full, full_dataset, timestamps_full, target_transformations, scaler_y)

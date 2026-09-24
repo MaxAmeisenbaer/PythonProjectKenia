@@ -46,38 +46,58 @@ def save_model_metadata(model_name, params, output_path="model_log.xlsx"):
     df.to_excel(output_path, index=False)
 
 
-def generate_model_name(config_name, target_feature, output_path="model_log.xlsx"):
+def generate_model_name(config_name, target_features, output_path="model_log.xlsx"):
     """
     Generiert einen eindeutigen Modellnamen basierend auf Konfiguration und Zielvariable.
     Die Nummerierung wird automatisch fortgeführt, falls bereits Modelle existieren.
 
     :param config_name: Name der Konfiguration (z. B. "benchmark")
-    :param target_feature: Zielgröße im Format "STATION_FEATURE" (z. B. "SHA_NO3")
+    :param target_features: Liste der Zielvariablen
     :param output_path: Pfad zur Excel-Logdatei für bestehende Modelle
     :return: String mit neuem Modellnamen
     """
-    station, target = target_feature.split("_")
+    stations = []
+    features = []
+    for variable in target_features:
+        station, feature = variable.split("_")
+        stations.append(station)
+        features.append(feature)
+    full_stations = ["NF", "SHA", "TTP"]
+    unique_stations = sorted(list(set(stations)))
+    unique_stations = [x for x in unique_stations if x in full_stations]
+    if unique_stations == full_stations:
+        station = "ALL"
+    else:
+        station = "_".join(unique_stations)
+    unique_features = sorted(list(set(features)))
+    target = "_".join(unique_features)
+
+
     prefix = f"LSTM_{station}_{config_name}_{target}"
 
     existing_numbers = []
     if os.path.exists(output_path):
-        df = pd.read_excel(output_path)
-        pattern = rf"{re.escape(prefix)}_(\d+)"
-        for name in df["model_name"]:
-            match = re.match(pattern, name)
-            if match:
-                existing_numbers.append(int(match.group(1)))
+        try:
+            df = pd.read_excel(output_path)
+            pattern = rf"^{re.escape(prefix)}_(\d+)"
+            for name in df["model_name"]:
+                match = re.match(pattern, str(name))
+                if match:
+                    existing_numbers.append(int(match.group(1)))
+        except Exception as e:
+            print(f"Warnung beim Lesen der Logdatei für Nummerierung: {e}")
+
 
     next_number = max(existing_numbers, default=0) + 1
     return f"{prefix}_{next_number:03d}"
 
 
-def prepare_data(config, target_feature, stations, measurements):
+def prepare_data(config, target_features, stations, measurements):
     """
     Bereitet die Datensätze für Training, Validierung und Test vor.
 
     :param config: Dictionary mit Modellkonfiguration (Batchgröße, Sequenzlänge etc.)
-    :param target_feature: Zielvariable (z. B. "SHA_Nit")
+    :param target_features: Liste der Zielvariablen (z. B. "SHA_Nit")
     :param stations: Liste der verwendeten Stationen
     :param measurements: Liste der Messgrößen
     :return: train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
@@ -85,7 +105,7 @@ def prepare_data(config, target_feature, stations, measurements):
     train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, log_target, scaler_y = create_final_ds(
         station="SHA",
         stations=stations,
-        target_feature=target_feature,
+        target_features=target_features,
         batch_size=config["batch_size"],
         seq_length=config["seq_length"],
         measurements=measurements
@@ -93,7 +113,7 @@ def prepare_data(config, target_feature, stations, measurements):
     return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, log_target, scaler_y
 
 
-def build_and_train_model(train_loader, val_loader, config, n_features: int):
+def build_and_train_model(train_loader, val_loader, config, n_features: int, n_targets: int):
     """
     Erstellt ein LSTM-Modell und trainiert es.
 
@@ -105,6 +125,7 @@ def build_and_train_model(train_loader, val_loader, config, n_features: int):
     """
     model, optimizer, loss_fn = create_model(
         n_features=n_features,
+        n_targets=n_targets,
         nodes_lstm=config["nodes_lstm"],
         nodes_dense=config["nodes_dense"],
         dropout=config["dropout"],
@@ -137,31 +158,31 @@ def run(scenario):
     :return: Dictionary mit Modellname und berechneten Metriken
     """
     if scenario == "benchmark":
-        stations, measurements, target_feature, config_name = get_benchmark_config()
+        stations, measurements, target_features, config_name = get_benchmark_config()
     elif scenario == "low_input":
-        stations, measurements, target_feature, config_name = get_low_input_config()
+        stations, measurements, target_features, config_name = get_low_input_config()
     elif scenario == "not_nit":
-        stations, measurements, target_feature, config_name = get_not_nit_config()
+        stations, measurements, target_features, config_name = get_not_nit_config()
     elif scenario == "not_lyser":
-        stations, measurements, target_feature, config_name = get_not_lyser_config()
+        stations, measurements, target_features, config_name = get_not_lyser_config()
     elif scenario == "not_prec":
-        stations, measurements, target_feature, config_name = get_not_prec_config()
+        stations, measurements, target_features, config_name = get_not_prec_config()
     elif scenario == "not_soil":
-        stations, measurements, target_feature, config_name = get_not_soil_config()
+        stations, measurements, target_features, config_name = get_not_soil_config()
     elif scenario == "not_water_qual":
-        stations, measurements, target_feature, config_name = get_not_water_qual_config()
+        stations, measurements, target_features, config_name = get_not_water_qual_config()
     elif scenario == "not_water_lvl":
-        stations, measurements, target_feature, config_name = get_not_water_lvl_config()
+        stations, measurements, target_features, config_name = get_not_water_lvl_config()
     elif scenario == "not_temp":
-        stations, measurements, target_feature, config_name = get_not_temp_config()
+        stations, measurements, target_features, config_name = get_not_temp_config()
     elif scenario == "not_wind":
-        stations, measurements, target_feature, config_name = get_not_wind_config()
+        stations, measurements, target_features, config_name = get_not_wind_config()
     elif scenario == "not_ec":
-        stations, measurements, target_feature, config_name = get_not_ec_config()
+        stations, measurements, target_features, config_name = get_not_ec_config()
     elif scenario == "not_atmos":
-        stations, measurements, target_feature, config_name = get_not_atmos_config()
+        stations, measurements, target_features, config_name = get_not_atmos_config()
     elif scenario == "test_code":
-        stations, measurements, target_feature, config_name = get_test_code_config()
+        stations, measurements, target_features, config_name = get_test_code_config()
     else:
         raise ValueError(f"Unbekanntes Szenario: {scenario}")
 
@@ -178,18 +199,19 @@ def run(scenario):
 
     # Daten vorbereiten
     (train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, log_target, scaler_y) = prepare_data(
-        model_config, target_feature, stations, measurements)
+        model_config, target_features, stations, measurements)
 
     # n_features aus x_full ableiten
     n_features = x_full.shape[1]
+    n_targets = len(target_features)
 
     # Modell bauen und trainieren
     model, history = build_and_train_model(
-        train_ds, val_ds, model_config, n_features)
+        train_ds, val_ds, model_config, n_features, n_targets)
 
     # Metriken berechnen
     metrics_result = calculate_all_metrics(model, test_ds, log_target=log_target)
-    model_name = generate_model_name(config_name, target_feature)
+    model_name = generate_model_name(config_name, target_features)
 
     # Modell speichern
     output_dir = os.path.join("models", config_name)
