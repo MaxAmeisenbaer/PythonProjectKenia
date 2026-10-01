@@ -102,7 +102,7 @@ def prepare_data(config, target_features, stations, measurements):
     :param measurements: Liste der Messgrößen
     :return: train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
     """
-    train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, log_target, scaler_y = create_final_ds(
+    train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, target_transformations, scaler_y = create_final_ds(
         station="SHA",
         stations=stations,
         target_features=target_features,
@@ -110,7 +110,7 @@ def prepare_data(config, target_features, stations, measurements):
         seq_length=config["seq_length"],
         measurements=measurements
     )
-    return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, log_target, scaler_y
+    return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, target_transformations, scaler_y
 
 
 def build_and_train_model(train_loader, val_loader, config, n_features: int, n_targets: int):
@@ -198,7 +198,7 @@ def run(scenario):
     }
 
     # Daten vorbereiten
-    (train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, log_target, scaler_y) = prepare_data(
+    (train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, target_transformations, scaler_y) = prepare_data(
         model_config, target_features, stations, measurements)
 
     # n_features aus x_full ableiten
@@ -210,7 +210,7 @@ def run(scenario):
         train_ds, val_ds, model_config, n_features, n_targets)
 
     # Metriken berechnen
-    metrics_result = calculate_all_metrics(model, test_ds, log_target=log_target)
+    metrics_result = calculate_all_metrics(model, test_ds,target_features, target_transformations=target_transformations)
     model_name = generate_model_name(config_name, target_features)
 
     # Modell speichern
@@ -243,7 +243,8 @@ def run(scenario):
             output_dir=output_dir,
             x_full=x_full,
             scaler_y=scaler_y,
-            log_target=log_target
+            target_features=target_features,
+            target_transformations=target_transformations
         )
 
     return {
