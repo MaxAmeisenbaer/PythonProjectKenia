@@ -7,7 +7,7 @@ from benchmark_szenario_sha import get_benchmark_config
 
 
 # Szenario laden
-stations, measurements, target_feature, config_name = get_benchmark_config()
+stations, measurements, target_features, config_name = get_benchmark_config()
 
 
 def objective(trial):
@@ -37,16 +37,18 @@ def objective(trial):
         station="SHA",
         stations=stations,
         measurements=measurements,
-        target_feature=target_feature,
+        target_features=target_features,
         batch_size=batch_size,
         seq_length=seq_length
     )
 
     n_features = x_full.shape[1]
+    n_targets = len(target_features)
 
     # --- Modell erstellen ---
     model, optimizer, loss_fn = create_model(
         n_features=n_features,
+        n_targets=n_targets,
         nodes_lstm=nodes_lstm,
         nodes_dense=nodes_dense,
         dropout=dropout,
@@ -96,7 +98,7 @@ best = study.best_params
     station="SHA",
     stations=stations,
     measurements=measurements,
-    target_feature=target_feature,
+    target_features=target_features,
     batch_size=best["batch_size"],
     seq_length=best["seq_length"]
 )
