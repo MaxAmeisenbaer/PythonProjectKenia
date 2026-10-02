@@ -8,6 +8,7 @@ from benchmark_szenario_sha import get_benchmark_config
 
 # Szenario laden
 stations, measurements, target_features, config_name = get_benchmark_config()
+n_targets = len(target_features)
 
 
 def objective(trial):
@@ -43,7 +44,6 @@ def objective(trial):
     )
 
     n_features = x_full.shape[1]
-    n_targets = len(target_features)
 
     # --- Modell erstellen ---
     model, optimizer, loss_fn = create_model(
@@ -107,6 +107,7 @@ n_features = x_full.shape[1]
 
 best_model, optimizer, loss_fn = create_model(
     n_features=n_features,
+    n_targets=n_targets,
     nodes_lstm=best["nodes_lstm"],
     nodes_dense=best["nodes_dense"],
     dropout=best["dropout"],
