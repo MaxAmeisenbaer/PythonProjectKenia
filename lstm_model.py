@@ -117,21 +117,42 @@ class LSTMModel(nn.Module):
         return self.output_layer(out)            # [batch, n_targets]
 
 
+def masked_mse_loss(y_pred, y_true, y_mask):
+    """
+    Berechnet den MSE nur für die Werte, bei denen die Maske 1 ist.
+
+    :param y_pred: Vorhersage [batch, n_targets]
+    :param y_true: Wahre Werte [batch, n_targets]
+    :param y_mask: Maske (1=echt, 0=interpoliert) [batch, n_targets]
+    :return: Skalarer Loss
+    """
+    # Elementweise Differenz quadrieren
+    squared_error = (y_pred - y_true) ** 2
+    # Mit der Maske multiplizieren
+    masked_error = squared_error * y_mask
+    # Durchschnitt über die echten Werte berechnen (Summe / Anzahl der echten Werte) - epsilon für damit nicht /0
+    loss = torch.sum(masked_error) / (torch.sum(y_mask) + 1e-8)
+
+    return loss
+
+
 def create_model(n_features: int, n_targets: int, nodes_lstm: int, nodes_dense: int,
                  dropout: float, learning_rate: float, num_layers: int = 2):
     """
     Erstellt ein LSTM-Modell und den Optimierer.
 
     :param n_features:    Anzahl der Eingabe-Features
+    :param n_targets:     Anzahl der Target-Features
     :param nodes_lstm:    Neuronen in der LSTM-Schicht
     :param nodes_dense:   Neuronen in der Dense-Schicht (0 = keine)
     :param dropout:       Dropout-Rate
     :param learning_rate: Lernrate des Adam-Optimierers
+    :param num_layers:    Anzahl der layers (Tiefe des Modells) default=2
     :return: model, optimizer, loss_fn
     """
     model     = LSTMModel(n_features, n_targets, nodes_lstm, nodes_dense, dropout, num_layers)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    loss_fn   = nn.MSELoss()
+    loss_fn   = masked_mse_loss
 
     return model, optimizer, loss_fn
 
@@ -165,10 +186,10 @@ def train_model(model: nn.Module, train_loader, val_loader,
         # --- Training ---
         model.train()
         train_losses = []
-        for x_batch, y_batch in train_loader:
+        for x_batch, y_batch, y_mask_batch in train_loader:
             optimizer.zero_grad()
             y_pred = model(x_batch)
-            loss   = loss_fn(y_pred, y_batch)
+            loss   = loss_fn(y_pred, y_batch, y_mask_batch)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
@@ -180,9 +201,9 @@ def train_model(model: nn.Module, train_loader, val_loader,
         all_y_true = []
         all_y_pred = []
         with torch.no_grad():
-            for x_batch, y_batch in val_loader:
+            for x_batch, y_batch, y_mask_batch in val_loader:
                 y_pred = model(x_batch)
-                loss   = loss_fn(y_pred, y_batch)
+                loss   = loss_fn(y_pred, y_batch, y_mask_batch)
                 val_losses.append(loss.item())
 
                 all_y_true.append(y_batch.cpu().numpy()) #Änderung wgn MultiTarget

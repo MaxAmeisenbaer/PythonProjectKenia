@@ -42,8 +42,12 @@ def objective(trial):
         batch_size=batch_size,
         seq_length=seq_length
     )
+    #potentiell nötig für richtige Struktur bei Training?
+    #train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    #val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False)
 
     n_features = x_full.shape[1]
+    n_targets = len(target_features)
 
     # --- Modell erstellen ---
     model, optimizer, loss_fn = create_model(
