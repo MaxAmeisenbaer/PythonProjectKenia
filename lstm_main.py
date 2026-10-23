@@ -6,20 +6,9 @@ from datetime import datetime
 
 from lstm_model import create_model, train_model
 from data_prepro import create_final_ds
-from benchmark_szenario_sha import get_benchmark_config
+from scenario_config import *
 from low_input_szenario_sha import get_low_input_config
-from not_nit_szenario_sha import get_not_nit_config
-from not_prec_szenario_sha import get_not_prec_config
-from not_soil_szenario_sha import get_not_soil_config
-from not_water_qual_szenario_sha import get_not_water_qual_config
-from not_water_lvl_szenario_sha import get_not_water_lvl_config
-from not_temp_szenario_sha import get_not_temp_config
-from not_wind_szenario_sha import get_not_wind_config
-from not_ec_szenario_sha import get_not_ec_config
-from not_atmos_szenaro_sha import get_not_atmos_config
-from test_code_szenario import get_test_code_config
 from evaluate_model import calculate_all_metrics, save_split_boundaries, evaluate_and_store_full_predictions
-from not_lyser_szenario_sha import get_not_lyser_config
 
 
 def save_model_metadata(model_name, params, output_path="model_log.xlsx"):
@@ -153,18 +142,14 @@ def run(scenario):
     - Berechnung der Metriken
     - Speichern von Modell, Log-Eintrag und Split-Grenzen
     - Evaluation auf vollem Datensatz
-
-    :param scenario: Name des Szenarios ("benchmark", "low_input", "not_nit", "not_lyser", "test_code")
+    Low_input ist legacy-code!
+    :param scenario: Name des Szenarios ("benchmark", "low_input", "test_code")
     :return: Dictionary mit Modellname und berechneten Metriken
     """
     if scenario == "benchmark":
         stations, measurements, target_features, config_name = get_benchmark_config()
     elif scenario == "low_input":
         stations, measurements, target_features, config_name = get_low_input_config()
-    elif scenario == "not_nit":
-        stations, measurements, target_features, config_name = get_not_nit_config()
-    elif scenario == "not_lyser":
-        stations, measurements, target_features, config_name = get_not_lyser_config()
     elif scenario == "not_prec":
         stations, measurements, target_features, config_name = get_not_prec_config()
     elif scenario == "not_soil":
@@ -185,6 +170,8 @@ def run(scenario):
         stations, measurements, target_features, config_name = get_test_code_config()
     else:
         raise ValueError(f"Unbekanntes Szenario: {scenario}")
+
+#Legacy-Code: not_nit_config und not_lyser_config
 
     model_config = {
         "nodes_lstm": 20,

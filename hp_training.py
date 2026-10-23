@@ -3,7 +3,7 @@ import torch
 
 from data_prepro import create_final_ds
 from lstm_model import create_model, train_model
-from benchmark_szenario_sha import get_benchmark_config
+from scenario_config import get_benchmark_config
 
 
 # Szenario laden

@@ -77,6 +77,24 @@ def get_scenario_config(scenario_type, missing_measurements=None, custom_targets
 
 #In Arbeit - JLUKICHAT
 
+def get_test_code_config():
+    """
+    Variante, die nur für minimale Tests gemacht ist
+    Übrig bleiben: Fin,Fun Prec + Custom_Targets - durch SHA und TTP_tur werden get_scenario_config-features getestet
+    :return: stations, measurements, target_features, config_name
+    """
+    scenario_type = "test_code"
+    excluded_measurements = ["disch", "doc", "elc", "prec", "tcd", "toc", "tsp", "tur", "wl"]
+    custom_targets = ["NF_nit","SHA_nit","TTP_nit","TTP_tur"]
+    excluded_stations = ["Air","Cha","Chi","KFS","Kur","NF","Mar","TF2","TTP","WSH"]
+
+    stations, measurements, target_features, config_name = get_scenario_config(scenario_type= scenario_type,
+                                                                               missing_measurements= excluded_measurements,
+                                                                               custom_targets= custom_targets,
+                                                                               missing_stations= excluded_stations)
+
+    return stations, measurements, target_features, config_name
+
 def get_benchmark_config():
     """
     Excluded Measurements: None
@@ -88,7 +106,7 @@ def get_benchmark_config():
     return stations, measurements, target_features, config_name
 
 
-def not_atmos_config():
+def get_not_atmos_config():
     """
     Excluded Measurements: par,rh
     :return: stations, measurements, target_features, config_name
@@ -101,7 +119,7 @@ def not_atmos_config():
     return stations, measurements, target_features, config_name
 
 
-def not_ec_config():
+def get_not_ec_config():
     """
     Excluded Measurements: ec15,elc
     :return: stations, measurements, target_features, config_name
@@ -113,7 +131,7 @@ def not_ec_config():
     return stations, measurements, target_features, config_name
 
 
-def not_prec_config():
+def get_not_prec_config():
     """
     Excluded Measurements: prec
     :return: stations, measurements, target_features, config_name
@@ -125,7 +143,7 @@ def not_prec_config():
     return stations, measurements, target_features, config_name
 
 
-def not_soil_config():
+def get_not_soil_config():
     """
     Excluded Measurements: ec15,stemp15,vwc15
     :return: stations, measurements, target_features, config_name
@@ -137,7 +155,7 @@ def not_soil_config():
     return stations, measurements, target_features, config_name
 
 
-def not_temp_config():
+def get_not_temp_config():
     """
     Excluded Measurements: tcp,temp,tsp
     :return: stations, measurements, target_features, config_name
@@ -149,7 +167,7 @@ def not_temp_config():
     return stations, measurements, target_features, config_name
 
 
-def not_water_lvl_config():
+def get_not_water_lvl_config():
     """
     Excluded Measurements: disch,wl
     :return: stations, measurements, target_features, config_name
@@ -161,7 +179,7 @@ def not_water_lvl_config():
     return stations, measurements, target_features, config_name
 
 
-def not_water_qual_config():
+def get_not_water_qual_config():
     """
     Excluded Measurements: doc,toc,tur
     :return: stations, measurements, target_features, config_name
@@ -173,7 +191,7 @@ def not_water_qual_config():
     return stations, measurements, target_features, config_name
 
 
-def not_wind_config():
+def get_not_wind_config():
     """
     Excluded Measurements: dir,wind,gust
     :return: stations, measurements, target_features, config_name
