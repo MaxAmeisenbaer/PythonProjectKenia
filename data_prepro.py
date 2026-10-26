@@ -46,7 +46,7 @@ def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
 
 def create_standard_measurement_df(filename, measure, interval, directory="Data"):
     """
-    Erstellt aus einer Messwert-CSV einen resampleten und interpolierten DataFrame mit standardisiertem Spaltennamen.
+    Erstellt aus einer Messwert-CSV einen zeitnormalisierten DataFrame mit standardisiertem Spaltennamen.
 
     :param filename: Dateiname der Messreihe
     :param measure: Kürzel des Messwertes (z.B. 'temp', 'ec')
@@ -57,7 +57,6 @@ def create_standard_measurement_df(filename, measure, interval, directory="Data"
     filepath = os.path.join(directory, filename)
     df = load_and_trim_dataframe(filepath)
     df = df.resample(interval).mean()
-    df = df.interpolate()
 
     station = filename.split("-")[0]
     colname = f"{station}_{measure}"
@@ -69,8 +68,7 @@ def create_standard_measurement_df(filename, measure, interval, directory="Data"
 
 def create_precipitation_df(station, interval, directory="Data"):
     """
-    Erstellt aus einer Niederschlagsdatei einen summierten, interpolierten DataFrame,
-    basierend auf einem vorgegebenen Zeitindex.
+    Erstellt aus einer Niederschlagsdatei einen summierten DataFrame, basierend auf einem vorgegebenen Zeitindex.
 
     :param station: Stationskürzel
     :param interval: Zeitintervall für das Resampling
