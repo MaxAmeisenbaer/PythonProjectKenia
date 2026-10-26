@@ -106,36 +106,66 @@ def create_precipitation_df(station, interval, directory="Data"):
 
     return df
 
-def impute_precipitation(df):
+def get_station_coordinates(directory="Data"):
     """
-    Füllt NaN in Niederschlagsspalten mit dem Mittelwert der anderen Stationen
-    zum gleichen Zeitpunkt (räumliche Interpolation).
-    Ausnahmefall: Falls alle Stationen gleichzeitig NaN haben → 0.
+    Liest Koordinaten aus Mau_instrumentation.csv aus und erstellt ein Mappeing über Stationen
+
+    :param directory: Pfad zum Ordner für Datei
+    :return: Dictonary mit Stationskürzel und log/lat
+    """
+    filepath = os.path.join(directory, "Mau_instrumentation.csv")
+    df = pd.read_csv(filepath)
+    coords_dict = {
+        row['ABB']: (float(row['lat']), float(row['lon']))
+        for _, row in df.iterrows()
+    }
+
+    return coords_dict
+
+def impute_precipitation(df, station_coords, p = 2):
+    """
+    Gewichtete räumliche Interpolation (IDW) für Niederschlag.
+
+    :param df: Der kombinierte DataFrame mit allen prec-Spalten
+    :param station_coords: Dict {station_name: (lat, lon)}
+    :param p: Power-Parameter für die Gewichtung (höher = näherliegende Stationen dominieren mehr)
     """
     prec_cols = [c for c in df.columns if c.endswith("_prec")]
 
-    if len(prec_cols) <= 1:
-        df[prec_cols] = df[prec_cols].fillna(0)
-        return df
-
-    n_imputed_total = 0
     for col in prec_cols:
-        other_cols = [c for c in prec_cols if c != col]
+        target_station = col.split("_")[0]
+        if target_station not in station_coords:
+            continue
+
+        target_coord = np.array(station_coords[target_station])
         mask = df[col].isna()
-        n_imputed = mask.sum()
 
-        if n_imputed > 0:
-            df.loc[mask, col] = df.loc[mask, other_cols].mean(axis=1)
-            n_imputed_total += n_imputed
+        if mask.any():
+            for idx in df.index[mask]:
+                weights = []
+                values = []
+                for other_col in prec_cols:
+                    if other_col == col:
+                        continue
+                    other_station = other_col.split("_")[0]
+                    if other_station not in station_coords:
+                        continue
+                    # Verwendet nur Stationen, die zu X einen Wert haben
+                    if not np.isnan(df.at[idx, other_col]):
+                        # Berechnet Distanz (hier nur linie, korrekter wäre Haversine)
+                        other_coord = np.array(station_coords[other_station])
+                        dist = np.linalg.norm(target_coord - other_coord)
+                        # div /0 vermeiden
+                        dist = max(dist, 0.000001)
+                        weight = 1.0 / (dist ** p)
+                        weights.append(weight)
+                        values.append(df.at[idx, other_col])
 
-    # Falls ALLE Stationen gleichzeitig NaN hatten → 0
-    remaining_nan = df[prec_cols].isna().sum().sum()
-    if remaining_nan > 0:
-        df[prec_cols] = df[prec_cols].fillna(0)
-
-    print(f"\n  Niederschlags-Imputation:")
-    print(f"    {n_imputed_total} Werte durch Stationsmittel ersetzt")
-    print(f"    {remaining_nan} Restwerte mit 0 gefüllt (alle Stationen gleichzeitig NaN)")
+                if weights:
+                    # Gewichteter Mittelwert
+                    df.at[idx, col] = np.average(values, weights=weights)
+                else:
+                    df.at[idx, col] = 0.0
 
     return df
 
@@ -183,7 +213,8 @@ def load_data(stations, measurements, target_features, interval="10min"):
     # ── Niederschlag zusammenführen und imputieren ──
     if prec_frames:
         prec_combined = pd.concat(prec_frames, axis=1)
-        prec_combined = impute_precipitation(prec_combined)
+        station_coords = get_station_coordinates()
+        prec_combined = impute_precipitation(prec_combined,station_coords)
         frames.append(prec_combined)
 
     df = pd.concat(frames, axis=1)
