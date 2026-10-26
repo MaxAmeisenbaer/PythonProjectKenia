@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
 from log_transformation import log_transform_log1p, log_transform_eps, boxcox_transform, analyze_skewness
 
-# ── Schwellenwert: Stationen mit mehr NaN-Anteil werden ausgeschlossen ──
+# ── Schwellenwert: Precipitation-Stationen mit mehr NaN-Anteil werden ausgeschlossen ──
 MAX_PREC_NAN_RATIO = 0.20
 
 
@@ -16,6 +16,7 @@ def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
     """
     Lädt eine CSV-Datei, filtert nach einem bestimmten Zeitbereich und optional nach einem Uhrzeit-Suffix,
     wandelt die Datumsangaben in datetime-Objekte um und setzt das Datum als Index.
+    Bei Air-Daten werden die Daten mit Mar-Daten angereichert.
 
     :param filepath: Pfad zur CSV-Datei
     :param valid_time_suffix: Uhrzeit-Suffix für die Filterung (z.B. "0:00" für volle 10-min), None deaktiviert Filter
@@ -41,7 +42,21 @@ def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
         chunk = chunk.loc[mask_date]
         filtered_chunks.append(chunk.set_index("date", drop=True))
 
-    return pd.concat(filtered_chunks, axis=0, copy=False)
+    df = pd.concat(filtered_chunks, axis=0, copy=False)
+
+    # Zusammenführen Air und Mar
+    filename = os.path.basename(filepath)
+    if filename.startswith("Air-"):
+        mar_filename = filename.replace("Air-", "Mar-")
+        mar_filepath = os.path.join(os.path.dirname(filepath), mar_filename)
+        if os.path.exists(mar_filepath):
+            df_mar = load_and_trim_dataframe(mar_filepath, valid_time_suffix=valid_time_suffix)
+            df_mar.rename(columns={"value": "value_mar"}, inplace=True)
+            df = df.join(df_mar, how='outer')
+            df["value"] = df["value"].fillna(df["value_mar"])
+            df.drop(columns=["value_mar"], inplace=True)
+
+    return df
 
 
 def create_standard_measurement_df(filename, measure, interval, directory="Data"):
@@ -126,7 +141,7 @@ def impute_precipitation(df):
 
 def create_filenames(stations, measurements):
     """
-    Erzeugt eine Liste an Dateinamen für alle Stations-Messwert-Kombinationen außer Niederschlag.
+    Erzeugt eine Liste an Dateinamen für alle Stations-Messwert-Kombinationen.
 
     :param stations: Liste der Stationsnamen
     :param measurements: Dictionary mit Messwertlisten je Station
@@ -136,7 +151,6 @@ def create_filenames(stations, measurements):
         f"{station}-{measure}.csv"
         for station in stations
         for measure in measurements.get(station, [])
-        if measure != "prec"
     ]
     return filenames
 

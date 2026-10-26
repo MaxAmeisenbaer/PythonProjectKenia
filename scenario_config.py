@@ -1,9 +1,8 @@
 import copy
-
-MASTER_STATIONS = ["Air","Cha","Chi","Fin","Fun","KFS","Kur","NF","Mar","SHA","TF2","TTP","WSH"]
+#Mar-Daten werden in Pipeline zu Air-Daten hinzugefügt
+MASTER_STATIONS = ["Air","Cha","Chi","Fin","Fun","KFS","Kur","NF","SHA","TF2","TTP","WSH"]
 
 MASTER_MEASUREMENTS = {
-    #Air und Mar sollen gemerged werden (gleiches Equipment - leicht verschoben)
     "Air": ["dir", "ec15", "gust", "par", "prec", "rh", "stemp15", "temp", "vwc15", "wind"],
     "Cha": ["prec"],
     "Chi": ["prec"],
@@ -12,7 +11,6 @@ MASTER_MEASUREMENTS = {
     "KFS": ["dir", "gust", "par", "rh", "stemp15", "temp", "vwc15", "wind"],
     "Kur": ["prec"],
     "NF": ["disch", "doc", "elc", "nit", "prec", "tcd", "toc", "tsp", "tur", "wl"],
-    "Mar": ["dir", "ec15", "gust", "par", "prec", "rh", "stemp15", "temp", "vwc15", "wind"],
     "SHA": ["disch", "doc", "elc", "nit", "prec", "tcd", "toc", "tsp", "tur", "wl"],
     "TF2": ["temp","prec"],
     "TTP": ["disch", "doc", "elc", "nit", "prec", "tcd", "toc", "tsp", "tur", "wl"],
