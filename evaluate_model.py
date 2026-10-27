@@ -134,7 +134,8 @@ def evaluate_and_store_full_predictions(model, full_ds, output_dir,
     :param output_dir: Zielverzeichnis für die gespeicherten Dateien
     :param x_full:     Vollständige skalierte Eingabematrix
     :param scaler_y:   Scaler für die Zielvariable
-    :param log_target: Infos über potentielle logarithmisierung der Zielvariable
+    :param target_features: Liste der Zielvariablen
+    :param target_transformations: Infors über Normalisierung der Target-Features
     :param batch_size: Batch-Größe für den DataLoader (beeinflusst nur Speicher nicht Ergebnis)
     """
     model.eval()
