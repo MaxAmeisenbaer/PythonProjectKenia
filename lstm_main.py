@@ -109,6 +109,7 @@ def build_and_train_model(train_loader, val_loader, config, n_features: int, n_t
     :param val_loader:   Validierungs-DataLoader
     :param config:       Dictionary mit Modellparametern
     :param n_features:   Anzahl der Eingabe-Features
+    :param n_targets:    Target-Variablen des Modells
     :return:             Trainiertes Modell, History-Dictionary
     """
     model, optimizer, loss_fn = create_model(
@@ -146,6 +147,8 @@ def run(scenario):
     """
     if scenario == "benchmark":
         stations, measurements, target_features, config_name = get_benchmark_config()
+    elif scenario == "disch":
+        stations, measurements, target_features, config_name = get_disch_config()
     elif scenario == "not_prec":
         stations, measurements, target_features, config_name = get_not_prec_config()
     elif scenario == "not_soil":

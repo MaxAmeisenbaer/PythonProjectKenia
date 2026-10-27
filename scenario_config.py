@@ -73,6 +73,17 @@ def get_scenario_config(scenario_type, missing_measurements=None, custom_targets
 
     return stations, measurements, target_features, config_name
 
+def add_disch():
+    """
+    Custom-Setting für disch-Runs
+    :return: custom_targets, missing_stations
+    """
+
+    custom_targets = ["NF_disch","NF_nit","SHA_disch","SHA_nit","TTP_disch","TTP_nit"]
+    excluded_measurements = ["NF_wl","SHA_wl","TTP_wl"]
+
+    return custom_targets, excluded_measurements
+
 #In Arbeit - JLUKICHAT
 
 def get_test_code_config():
@@ -198,4 +209,16 @@ def get_not_wind_config():
     excluded_measurements = ["dir", "wind", "gust"]
     stations, measurements, target_features, config_name = get_scenario_config(scenario_type=scenario_type,
                                                                                missing_measurements=excluded_measurements)
+    return stations, measurements, target_features, config_name
+
+def get_disch_config():
+    """
+    Variante mit Discharge als Target_Feature
+    :return: stations, measurements, target_features, config_name
+    """
+    scenario_type = "disch"
+    custom_target, excluded_measurements = add_disch()
+    stations, measurements, target_features, config_name = get_scenario_config(scenario_type=scenario_type,
+                                                                               missing_measurements=excluded_measurements,
+                                                                               custom_targets=custom_target)
     return stations, measurements, target_features, config_name
