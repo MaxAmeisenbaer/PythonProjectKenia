@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-
+#TODO: This script needs a full overhaul, as it is not up to date!
 def load_split_boundaries(model_path, split_info):
     """
     Lädt die Start- und Endzeitpunkte der Splits aus CSV-Datei.
