@@ -17,34 +17,38 @@ Ziele des Projekts:
 
 ---
 ## Voraussetzungen
-- Ordner "Data", im Repository, welches die Ursprungsdaten aller verwendeter Stationen beinhaltet
-- ausreichende Computerleistung für die Berechunng der Modelle
+- Ordner "Data", im Repository, welches die Ursprungsdaten aller verwendeter Stationen sowie Standortdaten der Stationen beinhaltet
+- ausreichende Computerleistung oder besser Zugang zu Compute-Cloud-Architektur für die Berechunng der Modelle
 
 ---
 
 ## Nutzung
-- In Zeile 198 von `lstm_main.py` das gewünschte Szenario eingeben ("benchmark","not_nit","not_lyser","low_input")
+- `hp_training.py` ausführen und beste Parameter-Settings für Modelle ermitteln
+-  In `lstm_main.py` `main`-Funktion (Ende des Dokuments9 das gewünschte Szenario eingeben ("benchmark","disch","not_ec"...)
 - `lstm_main.py` ausführen
 - für Visualisierung `create_figures.py` ausführen
 
 ---
 
 ## Struktur
-- ├── Data/                # Rohdaten & vorbereitete Datensätze
-- ├── models/              # Ergebnisse der trainierten Modelle
-- ├── figures/             # Grafiken zu den verschiedenen Modellen nach `create_figures.py`
-- ├── Additional Code/     # zusätzliche Skripts (nicht relevant)
-- ├── requirements.txt     # Python-Abhängigkeiten
-- ├── x_szenario_sha.py    # Konfiguration der verschiedenen Modell-Szenarien für Auswahl der Input-Faktoren (wird durch `lstm_main.py` aufgerufen)
-- ├── lstm_main.py         # Haupt-Skript, welcher ausgeführt wird, um Modelle zu berechnen
-- ├── lstm_model.py        # Skript, in dem die Modellstruktur aufgebaut wird (wird durch `lstm_main.py` aufgerufen)
-- ├── data_prepro.py       # Vorbereitung der Daten vor Modellberechnung (wird durch `lstm_main.py` aufgerufen)
-- └── README.md            # Projektbeschreibung
+- ├── Data/                 # Rohdaten & vorbereitete Datensätze
+- ├── models/               # Ergebnisse der trainierten Modelle
+- ├── figures/              # Grafiken zu den verschiedenen Modellen nach `create_figures.py`
+- ├── Additional Code/      # zusätzliche Skripts (nicht relevant)
+- ├── requirements.txt      # Python-Abhängigkeiten
+- ├── scenario_config.py    # Konfiguration der verschiedenen Modell-Szenarien für Auswahl der Input-Faktoren (wird durch `lstm_main.py` aufgerufen)
+- ├── hp_training.py        # Benchmark-Szenario ausführen, um beste Hyperparameter für Modelle zu bestimmen
+- ├── log_transformation.py # Normalisierung und Transformation der Daten in bestmögliche Form 
+- ├── lstm_main.py          # Haupt-Skript, welcher ausgeführt wird, um Modelle zu berechnen
+- ├── lstm_model.py         # Skript, in dem die Modellstruktur aufgebaut wird (wird durch `lstm_main.py` aufgerufen)
+- ├── data_prepro.py        # Vorbereitung der Daten vor Modellberechnung (wird durch `lstm_main.py` aufgerufen)
+- └── README.md             # Projektbeschreibung
 
 ---
 
 ## Autor
 
 - Projekt von Maximilian Mäder
-- basierend auf Arbeit von Henri Breuer
+- basierend auf Arbeit von Henri Breuer 
+- Unter der Leitung von Aaron Neill
 - Daten erhoben von Dr. Suzanne Jacobs
