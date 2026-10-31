@@ -1,7 +1,7 @@
 import optuna
 import torch
 
-from data_prepro import create_final_ds
+from data_prepro import prepare_data_arrays, make_dataloaders
 from lstm_model import create_model, train_model
 from scenario_config import get_benchmark_config
 
@@ -9,6 +9,14 @@ from scenario_config import get_benchmark_config
 # Szenario laden
 stations, measurements, target_features, config_name = get_benchmark_config()
 n_targets = len(target_features)
+
+# Teure Vorverarbeitung einmalig ausführen; die Trials bauen nur noch die DataLoader.
+DATA = prepare_data_arrays(
+    stations=stations,
+    measurements=measurements,
+    target_features=target_features
+)
+n_features = DATA["n_features"]
 
 
 def objective(trial):
@@ -31,23 +39,14 @@ def objective(trial):
     nodes_dense   = trial.suggest_categorical("nodes_dense",   [0, 32, 64])
 
     # --- Daten vorbereiten ---
-    (train_ds, val_ds, test_ds,
-     train_df, test_df, val_df,
-     x_full, full_ds,
-     timestamps_full, _ , _ ) = create_final_ds(
-        station="SHA",
-        stations=stations,
-        measurements=measurements,
-        target_features=target_features,
-        batch_size=batch_size,
-        seq_length=seq_length
+    # Nur die von seq_length/batch_size abhängigen DataLoader neu bauen.
+    train_ds, val_ds, test_ds = make_dataloaders(
+        DATA["x_train"], DATA["x_val"], DATA["x_test"],
+        DATA["y_train"], DATA["y_val"], DATA["y_test"],
+        DATA["y_train_mask"], DATA["y_val_mask"], DATA["y_test_mask"],
+        seq_length=seq_length,
+        batch_size=batch_size
     )
-    #potentiell nötig für richtige Struktur bei Training?
-    #train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-    #val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False)
-
-    n_features = x_full.shape[1]
-    n_targets = len(target_features)
 
     # --- Modell erstellen ---
     model, optimizer, loss_fn = create_model(
@@ -95,19 +94,13 @@ for k, v in study.best_params.items():
 # --- Bestes Modell neu trainieren ---
 best = study.best_params
 
-(train_ds, val_ds, test_ds,
- train_df, test_df, val_df,
- x_full, full_ds,
- timestamps_full, _ , _ ) = create_final_ds(
-    station="SHA",
-    stations=stations,
-    measurements=measurements,
-    target_features=target_features,
-    batch_size=best["batch_size"],
-    seq_length=best["seq_length"]
+train_ds, val_ds, test_ds = make_dataloaders(
+    DATA["x_train"], DATA["x_val"], DATA["x_test"],
+    DATA["y_train"], DATA["y_val"], DATA["y_test"],
+    DATA["y_train_mask"], DATA["y_val_mask"], DATA["y_test_mask"],
+    seq_length=best["seq_length"],
+    batch_size=best["batch_size"]
 )
-
-n_features = x_full.shape[1]
 
 best_model, optimizer, loss_fn = create_model(
     n_features=n_features,

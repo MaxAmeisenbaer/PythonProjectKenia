@@ -20,9 +20,16 @@ def analyze_skewness(df: pd.DataFrame) -> dict:
     return skew_dict
 
 def _ensure_positive(x: np.ndarray):
-    """Hängt einen Shift an, damit alle Werte > 0 werden."""
-    min_val = x.min()
-    shift = 0
+    """Hängt einen Shift an, damit alle endlichen Werte > 0 werden.
+
+    NaN-Werte werden ignoriert (np.nanmin) und bleiben im Ergebnis NaN.
+    """
+    x = np.asarray(x, dtype=float)
+    finite = np.isfinite(x)
+    if not finite.any():
+        raise ValueError("_ensure_positive: Array enthält keine endlichen Werte.")
+    min_val = np.min(x[finite])
+    shift = 0.0
     if min_val <= 0:
         shift = 1 - min_val
         x = x + shift
@@ -39,7 +46,12 @@ def log_transform_log1p(df, col):
     :param col: Name der zu transformierenden Spalte
     :return: DataFrame mit transformierten Spalten
     """
-    df[col] = np.log1p(df[col])
+    x = df[col]
+    if (x.dropna() <= -1).any():
+        raise ValueError(
+            f"log1p ist für Spalte '{col}' nicht definiert: Werte <= -1 vorhanden."
+        )
+    df[col] = np.log1p(x)
 
     return df
 
@@ -54,7 +66,13 @@ def log_transform_eps(df, col, epsilon=1e-6):
     :param epsilon: Kleiner Offset um log(0) zu vermeiden
     :return: DataFrame mit transformierten Spalten
     """
-    df[col] = np.log(df[col] + epsilon)
+    x = df[col]
+    if (x.dropna() + epsilon <= 0).any():
+        raise ValueError(
+            f"log(x + {epsilon}) ist für Spalte '{col}' nicht definiert: "
+            f"Werte <= -{epsilon} vorhanden."
+        )
+    df[col] = np.log(x + epsilon)
 
     return df
 
@@ -70,15 +88,22 @@ def boxcox_transform(df, col):
     """
     x_raw = df[col].values.astype(float)
 
+    # Nur endliche Werte transformieren (NaN bleibt NaN)
+    finite = np.isfinite(x_raw)
+    if not finite.any():
+        raise ValueError(f"boxcox: Spalte '{col}' enthält keine endlichen Werte.")
+
     # Shift für negative/0‑Werte
-    x, shift = _ensure_positive(x_raw)
+    x, shift = _ensure_positive(x_raw[finite])
 
     # Transformation
     trans, lam = boxcox(x)
 
     # Resultat
     df = df.copy()
-    df[col] = trans
+    values = np.full(len(x_raw), np.nan, dtype=float)
+    values[finite] = trans
+    df[col] = values
 
     # param-dict festlegen
     params = {"lambda": lam, "shift": shift}

@@ -43,16 +43,15 @@ def get_scenario_config(scenario_type, missing_measurements=None, custom_targets
                     del measurements[s]
     # Messungen ausschließen
     if missing_measurements:
-        for station, measures_to_remove in missing_measurements.items():
-            if station in measurements:
-                current_measures = measurements[station]
-                new_measures = [m for m in current_measures if m not in measures_to_remove]
-                measurements[station] = new_measures
-    # Wenn Station keine Messungen mehr hat
-    if not measurements[station]:
-        if station in stations:
-            stations.remove(station)
-        del measurements[station]
+        if isinstance(missing_measurements, (list, tuple, set)):
+            missing_measurements = {s: list(missing_measurements) for s in measurements}
+        for station, measures in list(missing_measurements.items()):
+            if station not in measurements:
+                continue
+            measurements[station] = [m for m in measurements[station] if m not in measures]
+            if not measurements[station]:
+                stations.remove(station)
+                del measurements[station]
     for t in target_features:
         t_station, t_measure = t.split("_")
         # ie Station wurde gelöscht

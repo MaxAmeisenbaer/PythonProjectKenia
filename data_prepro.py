@@ -2,8 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-import pyarrow as pa
-import pyarrow.parquet as pq
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
 from log_transformation import log_transform_log1p, log_transform_eps, boxcox_transform, analyze_skewness
@@ -138,6 +136,7 @@ def impute_precipitation(df, station_coords, p = 2):
             continue
 
         target_coord = np.array(station_coords[target_station])
+        col_dtype = df[col].dtype.type
         mask = df[col].isna()
 
         if mask.any():
@@ -162,10 +161,10 @@ def impute_precipitation(df, station_coords, p = 2):
                         values.append(df.at[idx, other_col])
 
                 if weights:
-                    # Gewichteter Mittelwert
-                    df.at[idx, col] = np.average(values, weights=weights)
+                    # Gewichteter Mittelwert (explizit auf Spaltendtype casten)
+                    df.at[idx, col] = col_dtype(np.average(values, weights=weights))
                 else:
-                    df.at[idx, col] = 0.0
+                    df.at[idx, col] = col_dtype(0.0)
 
     return df
 
@@ -181,6 +180,7 @@ def create_filenames(stations, measurements):
         f"{station}-{measure}.csv"
         for station in stations
         for measure in measurements.get(station, [])
+        if measure != "prec"
     ]
     return filenames
 
@@ -200,6 +200,8 @@ def load_data(stations, measurements, target_features, interval="10min"):
 
     for filename in filenames:
         measure = filename.split("-")[1].split(".")[0]
+        if measure == "prec":
+            continue
         frames.append(create_standard_measurement_df(filename, measure, interval=interval))
 
     # ── Niederschlag laden ──
@@ -219,39 +221,11 @@ def load_data(stations, measurements, target_features, interval="10min"):
 
     df = pd.concat(frames, axis=1)
 
-    #An welchen Stellen ist nicht NA
+    #An welchen Stellen ist nicht NA (muss VOR jeder Imputation passieren)
     truth_mask = df.notna().astype(np.float32)
 
-    # Skewness-Analyse
-    skew_dict = analyze_skewness(df)
-
-
-    #log-Transformation je nach skew und Anteil von Nullwerten
-    target_transformations = {}
-    for col, stats in skew_dict.items():
-        s = stats["skew"]
-        pz = stats["pct_zero"]
-
-        if s > 1 and pz > 10:
-            #log1p
-            df = log_transform_log1p(df, col)
-            if col in target_features:
-                target_transformations[col] = {"type": "log1p", "params": None}
-        elif s > 1:
-            #log(x + 1e-6)
-            df = log_transform_eps(df, col, epsilon=1e-6)
-            if col in target_features:
-                target_transformations[col] = {"type": "log_eps", "params": {"epsilon": 1e-6}}
-        elif 0.5 < s <= 1:
-            #boxcox-transformation
-            df, params = boxcox_transform(df, col)
-            if col in target_features:
-                target_transformations[col] = {"type": "boxcox", "params": params}
-        else:
-            if col in target_features:
-                target_transformations[col] = {"type": "none", "params": None}
-
-    # ── NaN-Behandlung nach Zusammenführung ──
+    # ── NaN-Behandlung VOR der Transformation ──
+    # Transformationen (insb. Box-Cox) benötigen endliche Werte, daher erst füllen.
     n_before = len(df)
     nan_count_before = df.isna().sum().sum()
 
@@ -270,6 +244,39 @@ def load_data(stations, measurements, target_features, interval="10min"):
           f" → {nan_count_after} NaN in {n_after} Zeilen"
           f" ({n_before - n_after} Zeilen entfernt)")
     # ── Ende NaN-Behandlung ──
+
+    # Skewness-Analyse (auf dem NaN-freien Datenstand)
+    skew_dict = analyze_skewness(df)
+
+
+    #log-Transformation je nach skew und Anteil von Nullwerten
+    target_transformations = {}
+    for col, stats in skew_dict.items():
+        s = stats["skew"]
+        pz = stats["pct_zero"]
+
+        # Log-Transformationen sind nur für gültige Definitionsbereiche erlaubt,
+        # sonst entstehen NaN (z.B. log(negativ)). In dem Fall auf Box-Cox
+        # ausweichen, die per Shift auch negative Werte verarbeiten kann.
+        min_val = df[col].min()
+
+        if s > 1 and pz > 10 and min_val > -1:
+            #log1p
+            df = log_transform_log1p(df, col)
+            trans_info = {"type": "log1p", "params": None}
+        elif s > 1 and min_val > -1e-6:
+            #log(x + 1e-6)
+            df = log_transform_eps(df, col, epsilon=1e-6)
+            trans_info = {"type": "log_eps", "params": {"epsilon": 1e-6}}
+        elif s > 1 or 0.5 < s <= 1:
+            #boxcox-transformation (auch Fallback für negative Werte)
+            df, params = boxcox_transform(df, col)
+            trans_info = {"type": "boxcox", "params": params}
+        else:
+            trans_info = {"type": "none", "params": None}
+
+        if col in target_features:
+            target_transformations[col] = trans_info
 
     truth_mask = truth_mask.reindex(index=df.index, columns=df.columns, fill_value=0).astype(np.float32)
 
@@ -427,26 +434,28 @@ class TimeSeriesDataset(Dataset):
     """
     PyTorch Dataset für Zeitreihendaten im Sliding-Window-Format.
 
+    Same-Step-Rekonstruktion: Der Zielwert ist der letzte Zeitschritt des Fensters.
+
     :param data:       Eingabematrix (numpy array) [n_samples, n_features]
     :param target:     Zielmatrix (numpy array)    [n_samples, 1]
     :param seq_length: Anz np.ndarray, seq_length: int):
     """
     def __init__(self, data: np.ndarray, target: np.ndarray,target_mask: np.ndarray, seq_length: int):
-        # Analog zu: data[:-seq_length], target[seq_length:]
+        # Sliding-Window: Fenster i = data[i:i+seq_length].
+        # Ziel ist der letzte Zeitschritt des Fensters (i+seq_length-1), d.h.
+        # Same-Step-Rekonstruktion - konsistent zu TimeSeriesDatasetWithTimestamps.
         if data.dtype != np.float32:
             data = data.astype(np.float32, copy=False)
         if target.dtype != np.float32:
             target = target.astype(np.float32, copy=False)
         self.data   = torch.from_numpy(
             np.lib.stride_tricks.sliding_window_view(data, seq_length, axis=0)).float()
-        self.target = torch.from_numpy(
-            target[seq_length-1:]).float() #vllt zusätzlich .reshape(-1, 1)
         # Transposieren von Feature-Menge und Seq-Length in Dimensionen (Standartisierung)
         if self.data.shape[2] == seq_length:
             self.data = self.data.transpose(1,2)
 
-        #Masking
-        self.target = torch.from_numpy(target[seq_length-1:]).float()
+        # Zielwert ist der letzte Zeitschritt des Fensters
+        self.target      = torch.from_numpy(target[seq_length-1:]).float()
         self.target_mask = torch.from_numpy(target_mask[seq_length-1:]).float()
 
         self.seq_length = seq_length
@@ -464,7 +473,9 @@ class TimeSeriesDataset(Dataset):
 
 class TimeSeriesDatasetWithTimestamps(Dataset):
     """
-    Eingabematrix [n_samples, n_features]
+    Eingabematrix [n_samples, n_features]. Der Zielwert ist der letzte Zeitschritt
+    des Fensters (Same-Step-Rekonstruktion) - konsistent zu TimeSeriesDataset.
+
     :param target:      Zielmatrix   (numpy array) [n_samples, 1]
     :param timestamps:  Zeitstempel-Array (numpy, dtype datetime64 oder str)
     :param seq_length:  Anz int):
@@ -474,10 +485,10 @@ class TimeSeriesDatasetWithTimestamps(Dataset):
         self.targets    = []
         self.timestamps = []
 
-        for i in range(len(data) - seq_length):
+        for i in range(len(data) - seq_length + 1):
             self.sequences.append(data[i : i + seq_length])
-            self.targets.append(target[i + seq_length])
-            self.timestamps.append(timestamps[i + seq_length])
+            self.targets.append(target[i + seq_length - 1])
+            self.timestamps.append(timestamps[i + seq_length - 1])
 
         self.sequences = torch.tensor(
             np.array(self.sequences), dtype=torch.float32
@@ -495,33 +506,25 @@ class TimeSeriesDatasetWithTimestamps(Dataset):
         # Zeitstempel wird separat zurückgegeben, nicht als Tensor
         return self.sequences[idx], self.targets[idx], self.timestamps[idx]
 
-def create_final_ds(
-    station: str,
-    stations: list,
-    measurements: dict,
-    target_features: str,
-    batch_size: int,
-    seq_length: int,
-    interval: str = "10min"
-):
+def prepare_data_arrays(stations: list, measurements: dict, target_features: str,
+                        interval: str = "10min"):
     """
-    Komplett-Pipeline: Laden (+ normalisieren) → Splitten → Skalieren → DataLoader erstellen.
+    Führt alle hyperparameter-unabhängigen Vorverarbeitungsschritte einmalig aus:
+    Laden, Transformieren, Füllen, Splitten, Skalieren, Targets extrahieren und
+    Input-Masken interleaven.
 
-    :return: train_loader, val_loader, test_loader,
-             train_df, test_df, val_df,
-             x_full, full_dataset, timestamps_full, log_target, scaler_y
+    Das Ergebnis kann mehrfach für verschiedene seq_length/batch_size verwendet werden
+    (z.B. in der Optuna-Zielfunktion), ohne die CSV-Dateien erneut zu laden.
+
+    :return: Dictionary mit allen vorbereiteten Arrays und Metadaten
     """
-    # Daten laden (parquet aus Performance-Gründen)
-    df, truth_mask, target_transformations = load_data(stations, measurements, target_features, interval=interval)
-    df.reset_index().to_parquet(f"{station}.parquet",engine="pyarrow", compression="snappy",index=False)
-    df.drop(columns=df.columns[df.columns.duplicated()], inplace=True)
-    df = pd.read_parquet(f"{station}.parquet")
-    df.set_index("date", inplace=True)
-
-    truth_mask = truth_mask.reindex(index=df.index, columns=df.columns, fill_value=0).astype(np.float32)
+    # Daten laden
+    df, truth_mask, target_transformations = load_data(
+        stations, measurements, target_features, interval=interval
+    )
 
     df = df.loc[:, df.apply(pd.Series.nunique) > 0]
-    df = df.apply(pd.to_numeric,errors="coerce")
+    df = df.apply(pd.to_numeric, errors="coerce")
 
     # Split
     train_df, val_df, test_df = split_dataset(df)
@@ -536,17 +539,83 @@ def create_final_ds(
 
     #Interleaving: Kombinieren Input-Feature mit Masking:
     feature_cols = [c for c in df.columns if c not in target_features]
-    x_train_interleaved = interleave_inputs(x_train_scaled, truth_mask.loc[train_df.index, feature_cols].values)
-    x_val_interleaved = interleave_inputs(x_val_scaled, truth_mask.loc[val_df.index, feature_cols].values)
-    x_test_interleaved = interleave_inputs(x_test_scaled, truth_mask.loc[test_df.index, feature_cols].values)
+    x_train_interleaved = interleave_inputs(
+        x_train_scaled, truth_mask.loc[train_df.index, feature_cols].values
+    )
+    x_val_interleaved = interleave_inputs(
+        x_val_scaled, truth_mask.loc[val_df.index, feature_cols].values
+    )
+    x_test_interleaved = interleave_inputs(
+        x_test_scaled, truth_mask.loc[test_df.index, feature_cols].values
+    )
 
-    # DataLoader erstellen
+    return {
+        "df": df,
+        "truth_mask": truth_mask,
+        "feature_cols": feature_cols,
+        "scaler": scaler,
+        "train_df": train_df,
+        "val_df": val_df,
+        "test_df": test_df,
+        "x_train": x_train_interleaved,
+        "x_val": x_val_interleaved,
+        "x_test": x_test_interleaved,
+        "y_train": y_train,
+        "y_val": y_val,
+        "y_test": y_test,
+        "y_train_mask": y_train_mask,
+        "y_val_mask": y_val_mask,
+        "y_test_mask": y_test_mask,
+        "target_transformations": target_transformations,
+        "n_features": x_train_interleaved.shape[1],
+    }
+
+
+def create_final_ds(
+    stations: list,
+    measurements: dict,
+    target_features: str,
+    batch_size: int,
+    seq_length: int,
+    interval: str = "10min",
+    include_full: bool = True
+):
+    """
+    Komplett-Pipeline: Laden (+ normalisieren) → Splitten → Skalieren → DataLoader erstellen.
+
+    Die teure, hyperparameter-unabhängige Vorverarbeitung ist in prepare_data_arrays()
+    ausgelagert und kann für mehrere Aufrufe wiederverwendet werden.
+
+    :param include_full: Wenn False, wird das vollständige Datenset (x_full, full_dataset,
+                         timestamps_full, scaler_y) nicht erzeugt. Für die Hyperparameter-Suche
+                         wird es nicht benötigt und spart je nach seq_length viel Speicher.
+    :return: train_loader, val_loader, test_loader,
+             train_df, test_df, val_df,
+             x_full, full_dataset, timestamps_full, target_transformations, scaler_y
+             (bei include_full=False sind x_full, full_dataset, timestamps_full und scaler_y None)
+    """
+    data = prepare_data_arrays(
+        stations, measurements, target_features, interval=interval
+    )
+
+    # DataLoader erstellen (hängt von seq_length und batch_size ab)
     train_loader, val_loader, test_loader = make_dataloaders(
-        x_train_interleaved, x_val_interleaved, x_test_interleaved,
-        y_train, y_val, y_test,
-        y_train_mask, y_val_mask, y_test_mask,
+        data["x_train"], data["x_val"], data["x_test"],
+        data["y_train"], data["y_val"], data["y_test"],
+        data["y_train_mask"], data["y_val_mask"], data["y_test_mask"],
         seq_length, batch_size
     )
+
+    # Vollständiges Datenset nur bei Bedarf erzeugen (z.B. nicht für die Hyperparameter-Suche)
+    if not include_full:
+        return (train_loader, val_loader, test_loader,
+                data["train_df"], data["test_df"], data["val_df"],
+                None, None, None, data["target_transformations"], None)
+
+    df = data["df"]
+    truth_mask = data["truth_mask"]
+    feature_cols = data["feature_cols"]
+    scaler = data["scaler"]
 
     # Zielvariable separat skalieren
     timestamps_full = df.index.to_numpy()
@@ -563,5 +632,5 @@ def create_final_ds(
     )
 
     return (train_loader, val_loader, test_loader,
-            train_df, test_df, val_df,
-            x_full, full_dataset, timestamps_full, target_transformations, scaler_y)
+            data["train_df"], data["test_df"], data["val_df"],
+            x_full, full_dataset, timestamps_full, data["target_transformations"], scaler_y)

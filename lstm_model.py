@@ -44,26 +44,58 @@ def compute_mbe(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
     return (y_pred - y_true).mean().item()
 
 
-def kling_gupta_efficiency(sim: np.ndarray, obs: np.ndarray) -> float:
+def kling_gupta_efficiency(sim: np.ndarray, obs: np.ndarray,
+                           mask: np.ndarray | None = None) -> float:
     """
     Berechnet die Kling-Gupta-Effizienz (KGE).
 
-    :param sim: Modellvorhersagen
-    :param obs: Beobachtungen
+    :param sim:  Modellvorhersagen [n_samples, n_targets]
+    :param obs:  Beobachtungen [n_samples, n_targets]
+    :param mask: Optionale Beobachtungsmaske [n_samples, n_targets]
+                 (1 = beobachtet, 0 = fehlend/imputiert)
     :return: Durchschnittlicher KGE-Wert (maximal 1, je näher an 1 desto besser)
     """
     n_targets = sim.shape[1]
     kge_values = []
 
+    if mask is not None:
+        mask = np.asarray(mask)
+
     for i in range(n_targets):
         s = sim[:, i]
         o = obs[:, i]
-        r     = np.corrcoef(s, o)[0, 1]
-        alpha = np.std(s) / np.std(o)
-        beta  = np.mean(s) / np.mean(o)
+
+        if mask is not None:
+            valid = mask[:, i] > 0
+            s = s[valid]
+            o = o[valid]
+
+        finite = np.isfinite(s) & np.isfinite(o)
+        s = s[finite]
+        o = o[finite]
+
+        if s.size < 2:
+            kge_values.append(np.nan)
+            continue
+
+        std_s = np.std(s)
+        std_o = np.std(o)
+        mean_o = np.mean(o)
+        if std_s <= 1e-12 or std_o <= 1e-12 or abs(mean_o) <= 1e-12:
+            kge_values.append(np.nan)
+            continue
+
+        r = np.corrcoef(s, o)[0, 1]
+        if not np.isfinite(r):
+            kge_values.append(np.nan)
+            continue
+
+        alpha = std_s / std_o
+        beta  = np.mean(s) / mean_o
         kge_values.append(1 - np.sqrt((r - 1)**2 + (alpha - 1)**2 + (beta - 1)**2))
 
-    return np.mean(kge_values)
+    valid_kge = [value for value in kge_values if np.isfinite(value)]
+    return float(np.mean(valid_kge)) if valid_kge else float("nan")
 
 
 class LSTMModel(nn.Module):
@@ -200,6 +232,7 @@ def train_model(model: nn.Module, train_loader, val_loader,
         val_losses = []
         all_y_true = []
         all_y_pred = []
+        all_y_mask = []
         with torch.no_grad():
             for x_batch, y_batch, y_mask_batch in val_loader:
                 y_pred = model(x_batch)
@@ -208,13 +241,15 @@ def train_model(model: nn.Module, train_loader, val_loader,
 
                 all_y_true.append(y_batch.cpu().numpy()) #Änderung wgn MultiTarget
                 all_y_pred.append(y_pred.cpu().numpy()) #Änderung wgn MultiTarget
+                all_y_mask.append(y_mask_batch.cpu().numpy())
 
         train_loss = np.mean(train_losses)
         val_loss   = np.mean(val_losses)
 
         all_y_true_arr = np.concatenate(all_y_true, axis=0)
         all_y_pred_arr = np.concatenate(all_y_pred, axis=0)
-        val_kge = kling_gupta_efficiency(all_y_pred_arr, all_y_true_arr)
+        all_y_mask_arr = np.concatenate(all_y_mask, axis=0)
+        val_kge = kling_gupta_efficiency(all_y_pred_arr, all_y_true_arr, all_y_mask_arr)
 
         history["train_loss"].append(train_loss)
         history["val_loss"].append(val_loss)

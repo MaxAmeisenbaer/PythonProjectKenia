@@ -91,7 +91,6 @@ def prepare_data(config, target_features, stations, measurements):
     :return: train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
     """
     train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, target_transformations, scaler_y = create_final_ds(
-        station="SHA",
         stations=stations,
         target_features=target_features,
         batch_size=config["batch_size"],
