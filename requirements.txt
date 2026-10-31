@@ -1,17 +1,13 @@
 ﻿matplotlib==3.9.2
-mkl-service==2.4.2
 pandas==2.2.3
-ply==3.11
-pyarrow==25.0.1
-tables==3.9.2
-PyQt5==5.15.10
-pytz==2024.2
 openpyxl==3.1.5
 seaborn==0.13.2
 
-torch==2.11.0
 optuna==4.8.0
 
 numpy~=1.26.4
 scipy~=1.17.0
 scikit-learn~=1.5.1
+
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch==2.11.0+cu130
