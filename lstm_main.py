@@ -4,7 +4,7 @@ import torch
 import pandas as pd
 from datetime import datetime
 
-from lstm_model import create_model, train_model
+from lstm_model import create_model, train_model, set_seed
 from data_prepro import create_final_ds
 from scenario_config import *
 from evaluate_model import calculate_all_metrics, save_split_boundaries, evaluate_and_store_full_predictions
@@ -144,6 +144,9 @@ def run(scenario):
     :param scenario: Name des Szenarios ("benchmark", "low_input", "test_code")
     :return: Dictionary mit Modellname und berechneten Metriken
     """
+    # Reproduzierbare Initialisierung und Trainingsreihenfolge
+    set_seed(42)
+
     if scenario == "benchmark":
         stations, measurements, target_features, config_name = get_benchmark_config()
     elif scenario == "disch":

@@ -1,7 +1,26 @@
+import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+
+
+def set_seed(seed: int = 42) -> None:
+    """
+    Setzt Python-, NumPy- und PyTorch-Zufallsgeneratoren für reproduzierbare Läufe.
+
+    :param seed: Seed für alle Zufallsgeneratoren
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    # Deterministische cuDNN-Kernel (relevant bei Training auf GPU)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 def compute_nse(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
