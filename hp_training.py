@@ -1,4 +1,5 @@
 import json
+import argparse
 import os
 import pickle
 from datetime import datetime
@@ -14,6 +15,36 @@ from scenario_config import get_benchmark_config, get_disch_config
 SEED = 42
 STORAGE = "sqlite:///optuna_study.db"
 OUTPUT_ROOT = os.path.join("models", "hp_tuning")
+
+SCENARIO_GETTERS = {
+    "benchmark": get_benchmark_config,
+    "disch": get_disch_config,
+}
+
+
+def parse_args():
+    """
+    Funktion, die Argumente aus Aufrufen in der Konsole einliest
+    Arugumente:
+    --scenario      Szenario, welches für Benchmark genutzt werden soll
+    n_trials        Menge an Bayes-Kombinationen, die getestet werden
+    """
+    parser = argparse.ArgumentParser(
+        description="Optuna hyperparameter tuning for LSTM scenarios"
+    )
+    parser.add_argument(
+        "--scenario",
+        choices=SCENARIO_GETTERS,
+        default="benchmark",
+        help="Scenario to tune (default: benchmark)"
+    )
+    parser.add_argument(
+        "--trials",
+        type=int,
+        default=20,
+        help="Number of Optuna trials (default: 20)"
+    )
+    return parser.parse_args()
 
 
 def objective(trial, data, n_features, n_targets):
@@ -155,12 +186,12 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
     """
     Führt die Optuna-Studie aus und speichert das beste Modell samt
     vollständiger Konfiguration und Preprocessing-Objekte.
+
+    :param scenario:        Szenario, welches für Benchmark genutzt werden soll
+    :param n_trials:        Menge an Bayes-Kombinationen, die getestet werden
     """
     # Szenario laden
-    if scenario == "disch":
-        stations, measurements, target_features, config_name = get_disch_config()
-    else:
-        stations, measurements, target_features, config_name = get_benchmark_config()
+    stations, measurements, target_features, config_name = SCENARIO_GETTERS[scenario]()
 
     n_targets = len(target_features)
 
@@ -252,4 +283,5 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
 
 
 if __name__ == "__main__":
-    run_hp_training("disch")
+    args = parse_args()
+    run_hp_training(scenario=args.scenario, n_trials=args.trials)
