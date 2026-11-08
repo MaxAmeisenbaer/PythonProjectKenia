@@ -8,7 +8,7 @@ import torch
 
 from data_prepro import prepare_data_arrays, make_dataloaders
 from lstm_model import create_model, train_model, set_seed
-from scenario_config import get_benchmark_config
+from scenario_config import get_benchmark_config, get_disch_config
 
 
 SEED = 42
@@ -151,13 +151,17 @@ def save_best_artifacts(study, best_model, history, data, config_name,
     return best_config, output_dir
 
 
-def run_hp_training(n_trials: int = 20):
+def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
     """
     Führt die Optuna-Studie aus und speichert das beste Modell samt
     vollständiger Konfiguration und Preprocessing-Objekte.
     """
     # Szenario laden
-    stations, measurements, target_features, config_name = get_benchmark_config()
+    if scenario == "disch":
+        stations, measurements, target_features, config_name = get_disch_config()
+    else:
+        stations, measurements, target_features, config_name = get_benchmark_config()
+
     n_targets = len(target_features)
 
     set_seed(SEED)
@@ -248,4 +252,4 @@ def run_hp_training(n_trials: int = 20):
 
 
 if __name__ == "__main__":
-    run_hp_training()
+    run_hp_training("disch")
