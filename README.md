@@ -12,7 +12,7 @@ Ziele des Projekts:
 ---
 
 ## Technologien
-- **Python 3.9** oder **Python 3.12**  
+- **Python 3.10** oder **Python 3.12**  
 - Alle weiteren benötigten Pakete sind in der Datei `requirements.txt` aufgelistet.  
 
 ---
@@ -24,7 +24,7 @@ Ziele des Projekts:
 
 ## Nutzung
 - `hp_training.py` ausführen und beste Parameter-Settings für Modelle ermitteln
--  In `lstm_main.py` `main`-Funktion (Ende des Dokuments9 das gewünschte Szenario eingeben ("benchmark","disch","not_ec"...)
+-  In `lstm_main.py` in der `run`-Funktion (Ende des Dokuments) das gewünschte Szenario eingeben ("benchmark","disch","not_ec"...)
 - `lstm_main.py` ausführen
 - für Visualisierung `create_figures.py` ausführen
 
