@@ -20,7 +20,7 @@ MASTER_MEASUREMENTS = {
 DEFAULT_TARGETS = ["NF_nit","SHA_nit","TTP_nit"]
 
 
-def get_scenario_config(scenario_type, missing_measurements=None, custom_targets=None, missing_stations=None):
+def _get_scenario_config(scenario_type, missing_measurements=None, custom_targets=None, missing_stations=None):
     """
     Generiert eine Konfiguration basierend auf dem Master-Set.
     :param scenario_type: Name/Typ des szenarios
@@ -72,7 +72,7 @@ def get_scenario_config(scenario_type, missing_measurements=None, custom_targets
 
     return stations, measurements, target_features, config_name
 
-def add_disch():
+def _add_disch():
     """
     Custom-Setting für disch-Runs
     :return: custom_targets, missing_stations
@@ -88,7 +88,7 @@ def add_disch():
 def get_test_code_config():
     """
     Variante, die nur für minimale Tests gemacht ist
-    Übrig bleiben: Fin,Fun Prec + Custom_Targets - durch SHA und TTP_tur werden get_scenario_config-features getestet
+    Übrig bleiben: Fin,Fun Prec + Custom_Targets - durch SHA und TTP_tur werden _get_scenario_config-features getestet
     :return: stations, measurements, target_features, config_name
     """
     scenario_type = "test_code"
@@ -96,7 +96,7 @@ def get_test_code_config():
     custom_targets = ["NF_nit","SHA_nit","TTP_nit","TTP_tur"]
     excluded_stations = ["Air","Cha","Chi","KFS","Kur","NF","Mar","TF2","TTP","WSH"]
 
-    stations, measurements, target_features, config_name = get_scenario_config(scenario_type= scenario_type,
+    stations, measurements, target_features, config_name = _get_scenario_config(scenario_type= scenario_type,
                                                                                missing_measurements= excluded_measurements,
                                                                                custom_targets= custom_targets,
                                                                                missing_stations= excluded_stations)
@@ -109,7 +109,7 @@ def get_benchmark_config():
     :return: stations, measurements, target_features, config_name
     """
     scenario_type = "benchmark"
-    stations, measurements, target_features, config_name = get_scenario_config(scenario_type)
+    stations, measurements, target_features, config_name = _get_scenario_config(scenario_type)
 
     return stations, measurements, target_features, config_name
 
@@ -121,7 +121,7 @@ def get_not_atmos_config():
     """
     scenario_type = "not_atmos"
     excluded_measurements = ["par", "rh"]
-    stations, measurements, target_features, config_name = get_scenario_config(scenario_type=scenario_type,
+    stations, measurements, target_features, config_name = _get_scenario_config(scenario_type=scenario_type,
                                                                                missing_measurements=excluded_measurements)
 
     return stations, measurements, target_features, config_name
@@ -134,7 +134,7 @@ def get_not_ec_config():
     """
     scenario_type = "not_ec"
     excluded_measurements = ["ec15", "elc"]
-    stations, measurements, target_features, config_name = get_scenario_config(scenario_type=scenario_type,
+    stations, measurements, target_features, config_name = _get_scenario_config(scenario_type=scenario_type,
                                                                                missing_measurements=excluded_measurements)
     return stations, measurements, target_features, config_name
 
@@ -146,7 +146,7 @@ def get_not_prec_config():
     """
     scenario_type = "not_prec"
     excluded_measurements = ["prec"]
-    stations, measurements, target_features, config_name = get_scenario_config(scenario_type=scenario_type,
+    stations, measurements, target_features, config_name = _get_scenario_config(scenario_type=scenario_type,
                                                                                missing_measurements=excluded_measurements)
     return stations, measurements, target_features, config_name
 
@@ -158,7 +158,7 @@ def get_not_soil_config():
     """
     scenario_type = "not_soil"
     excluded_measurements = ["ec15", "stemp15", "vwc15"]
-    stations, measurements, target_features, config_name = get_scenario_config(scenario_type=scenario_type,
+    stations, measurements, target_features, config_name = _get_scenario_config(scenario_type=scenario_type,
                                                                                missing_measurements=excluded_measurements)
     return stations, measurements, target_features, config_name
 
@@ -170,7 +170,7 @@ def get_not_temp_config():
     """
     scenario_type = "not_temp"
     excluded_measurements = ["tcp", "temp", "tsp"]
-    stations, measurements, target_features, config_name = get_scenario_config(scenario_type=scenario_type,
+    stations, measurements, target_features, config_name = _get_scenario_config(scenario_type=scenario_type,
                                                                                missing_measurements=excluded_measurements)
     return stations, measurements, target_features, config_name
 
@@ -182,7 +182,7 @@ def get_not_water_lvl_config():
     """
     scenario_type = "not_water_lvl"
     excluded_measurements = ["disch", "wl"]
-    stations, measurements, target_features, config_name = get_scenario_config(scenario_type=scenario_type,
+    stations, measurements, target_features, config_name = _get_scenario_config(scenario_type=scenario_type,
                                                                                missing_measurements=excluded_measurements)
     return stations, measurements, target_features, config_name
 
@@ -194,7 +194,7 @@ def get_not_water_qual_config():
     """
     scenario_type = "not_water_qual"
     excluded_measurements = ["doc", "toc", "tur"]
-    stations, measurements, target_features, config_name = get_scenario_config(scenario_type=scenario_type,
+    stations, measurements, target_features, config_name = _get_scenario_config(scenario_type=scenario_type,
                                                                                missing_measurements=excluded_measurements)
     return stations, measurements, target_features, config_name
 
@@ -206,7 +206,7 @@ def get_not_wind_config():
     """
     scenario_type = "not_wind"
     excluded_measurements = ["dir", "wind", "gust"]
-    stations, measurements, target_features, config_name = get_scenario_config(scenario_type=scenario_type,
+    stations, measurements, target_features, config_name = _get_scenario_config(scenario_type=scenario_type,
                                                                                missing_measurements=excluded_measurements)
     return stations, measurements, target_features, config_name
 
@@ -216,8 +216,8 @@ def get_disch_config():
     :return: stations, measurements, target_features, config_name
     """
     scenario_type = "disch"
-    custom_target, excluded_measurements = add_disch()
-    stations, measurements, target_features, config_name = get_scenario_config(scenario_type=scenario_type,
+    custom_target, excluded_measurements = _add_disch()
+    stations, measurements, target_features, config_name = _get_scenario_config(scenario_type=scenario_type,
                                                                                missing_measurements=excluded_measurements,
                                                                                custom_targets=custom_target)
     return stations, measurements, target_features, config_name

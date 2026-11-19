@@ -63,7 +63,7 @@ def compute_mbe(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
     return (y_pred - y_true).mean().item()
 
 
-def kling_gupta_efficiency(sim: np.ndarray, obs: np.ndarray,
+def _kling_gupta_efficiency(sim: np.ndarray, obs: np.ndarray,
                            mask: np.ndarray | None = None) -> float:
     """
     Berechnet die Kling-Gupta-Effizienz (KGE).
@@ -168,7 +168,7 @@ class LSTMModel(nn.Module):
         return self.output_layer(out)            # [batch, n_targets]
 
 
-def masked_mse_loss(y_pred, y_true, y_mask):
+def _masked_mse_loss(y_pred, y_true, y_mask):
     """
     Berechnet den MSE nur für die Werte, bei denen die Maske 1 ist.
 
@@ -203,7 +203,7 @@ def create_model(n_features: int, n_targets: int, nodes_lstm: int, nodes_dense: 
     """
     model     = LSTMModel(n_features, n_targets, nodes_lstm, nodes_dense, dropout, num_layers)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    loss_fn   = masked_mse_loss
+    loss_fn   = _masked_mse_loss
 
     return model, optimizer, loss_fn
 
@@ -268,7 +268,7 @@ def train_model(model: nn.Module, train_loader, val_loader,
         all_y_true_arr = np.concatenate(all_y_true, axis=0)
         all_y_pred_arr = np.concatenate(all_y_pred, axis=0)
         all_y_mask_arr = np.concatenate(all_y_mask, axis=0)
-        val_kge = kling_gupta_efficiency(all_y_pred_arr, all_y_true_arr, all_y_mask_arr)
+        val_kge = _kling_gupta_efficiency(all_y_pred_arr, all_y_true_arr, all_y_mask_arr)
 
         history["train_loss"].append(train_loss)
         history["val_loss"].append(val_loss)

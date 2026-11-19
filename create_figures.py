@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
 #TODO: This script needs a full overhaul, as it is not up to date!
-def load_split_boundaries(model_path, split_info):
+def _load_split_boundaries(model_path, split_info):
     """
     Lädt die Start- und Endzeitpunkte der Splits aus CSV-Datei.
 
@@ -23,7 +23,7 @@ def load_split_boundaries(model_path, split_info):
 
 
 
-def load_predictions(model_folder):
+def _load_predictions(model_folder):
     """
     Lädt das Modell und die konsolidierten Vorhersage- und Zeitreihendateien aus dem Modellordner.
 
@@ -42,7 +42,7 @@ def load_predictions(model_folder):
 
 
 
-def plot_predictions_full_timeline(model_folder, output_path, szenario, boundaries):
+def _plot_predictions_full_timeline(model_folder, output_path, szenario, boundaries):
     """
     Erstellt eine Zeitreihengrafik für Messwerte und Vorhersagen über den gesamten Zeitraum.
     Die Split-Grenzen (Validierung/Test) werden als vertikale Linien markiert.
@@ -52,7 +52,7 @@ def plot_predictions_full_timeline(model_folder, output_path, szenario, boundari
     :param szenario: Name des Szenarios (z.B. "benchmark")
     :param boundaries: Dictionary mit Split-Grenzen (train/val/test)
     """
-    y_pred, y_true, full_timestamps = load_predictions(model_folder)
+    y_pred, y_true, full_timestamps = _load_predictions(model_folder)
 
     if len(full_timestamps) != len(y_pred):
         raise ValueError(f"Längen passen nicht: {len(full_timestamps)} vs. {len(y_pred)}")
@@ -81,7 +81,7 @@ def plot_predictions_full_timeline(model_folder, output_path, szenario, boundari
     fig.savefig(os.path.join(output_path, f"{szenario}_zeitreihe.png"))
     plt.close(fig)
 
-def plot_predictions_test_timeline(model_folder, output_path, szenario, boundaries):
+def _plot_predictions_test_timeline(model_folder, output_path, szenario, boundaries):
     """
     Erstellt eine Zeitreihengrafik für Messwerte und Vorhersagen über den Testdatenzeitraum
 
@@ -89,7 +89,7 @@ def plot_predictions_test_timeline(model_folder, output_path, szenario, boundari
     :param output_path: Pfad zum Ausgabeverzeichnis
     :param szenario: Name des Szenarios (z.B. "benchmark")
     """
-    y_pred, y_true, full_timestamps = load_predictions(model_folder)
+    y_pred, y_true, full_timestamps = _load_predictions(model_folder)
 
     if len(full_timestamps) != len(y_pred):
         raise ValueError(f"Längen passen nicht: {len(full_timestamps)} vs. {len(y_pred)}")
@@ -119,7 +119,7 @@ def plot_predictions_test_timeline(model_folder, output_path, szenario, boundari
 
 
 
-def plot_scatter(model_folder, output_folder, szenario):
+def _plot_scatter(model_folder, output_folder, szenario):
     """
     Erstellt ein Scatterplot-Diagramm (gemessen vs. vorhergesagt) für ein Modell.
 
@@ -127,7 +127,7 @@ def plot_scatter(model_folder, output_folder, szenario):
     :param output_folder: Pfad zum Ausgabeverzeichnis
     :param szenario: Name des Szenarios (z.B. "benchmark")
     """
-    predictions, y_true, _ = load_predictions(model_folder)
+    predictions, y_true, _ = _load_predictions(model_folder)
 
     plt.figure(figsize=(6, 6))
     plt.scatter(y_true, predictions, color="dodgerblue", edgecolor='k', alpha=0.75)
@@ -149,7 +149,7 @@ def plot_scatter(model_folder, output_folder, szenario):
     plt.close()
 
 
-def combine_scatter_plots(image_names, input_folder, output_path, dpi=300):
+def _combine_scatter_plots(image_names, input_folder, output_path, dpi=300):
     """
     Kombiniert mehrere Scatterplots zu einem 2x2-Rasterbild,
     ohne zusätzliche Beschriftungen (für kompakte Darstellung).
@@ -181,7 +181,7 @@ def combine_scatter_plots(image_names, input_folder, output_path, dpi=300):
 
 
 
-def plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir):
+def _plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir):
     """
     Führt die Erstellung von Zeitreihen- und Scatterplots für alle angegebenen Szenarien durch.
 
@@ -203,12 +203,12 @@ def plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, output
         else:
             raise ValueError(f"Unbekannter Modellordner: {szenario}")
 
-        boundaries = load_split_boundaries(model_path, split_info)
-        plot_predictions_full_timeline(model_path,output_zeitreihe_dir, szenario, boundaries)
-        plot_scatter(model_path, output_scatter_dir, szenario)
+        boundaries = _load_split_boundaries(model_path, split_info)
+        _plot_predictions_full_timeline(model_path,output_zeitreihe_dir, szenario, boundaries)
+        _plot_scatter(model_path, output_scatter_dir, szenario)
 
 
-def plot_models_data_type_exclusion(szenarien, base_model_dir, output_zeitreihe_dir):
+def _plot_models_data_type_exclusion(szenarien, base_model_dir, output_zeitreihe_dir):
     """
     Führt die Erstellung von Zeitreihenplots für alle angegebenen Szenarien durch.
 
@@ -239,8 +239,8 @@ def plot_models_data_type_exclusion(szenarien, base_model_dir, output_zeitreihe_
         else:
             raise ValueError(f"Unbekannter Modellordner: {szenario}")
 
-        boundaries = load_split_boundaries(model_path, split_info)
-        plot_predictions_test_timeline(model_path, output_zeitreihe_dir, szenario, boundaries)
+        boundaries = _load_split_boundaries(model_path, split_info)
+        _plot_predictions_test_timeline(model_path, output_zeitreihe_dir, szenario, boundaries)
 
 
 def main():
@@ -255,7 +255,7 @@ def main():
     output_scatter_dir = "figures/scatter"
 
 
-    plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir)
+    _plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir)
 
     image_list = [
         "benchmark_scatter.png",
@@ -264,7 +264,7 @@ def main():
         "low_input_scatter.png"
     ]
 
-    combine_scatter_plots(
+    _combine_scatter_plots(
         image_names=image_list,
         input_folder="figures/scatter",
         output_path="figures/combined_scatter_2x2.png"
@@ -285,7 +285,7 @@ def test_single_model():
     output_scatter_dir = "figures/scatter"
 
 
-    plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir)
+    _plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir)
 
 
 #if __name__ == "__main__":
@@ -300,7 +300,7 @@ def data_type_exclusion_graphs():
     base_model_dir = "models"
     output_zeitreihe_dir = "figures/zeitreihe"
 
-    plot_models_data_type_exclusion(szenarien, base_model_dir, output_zeitreihe_dir)
+    _plot_models_data_type_exclusion(szenarien, base_model_dir, output_zeitreihe_dir)
 
 if __name__ == "__main__":
     data_type_exclusion_graphs()

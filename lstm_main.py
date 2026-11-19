@@ -10,7 +10,7 @@ from scenario_config import *
 from evaluate_model import calculate_all_metrics, save_split_boundaries, evaluate_and_store_full_predictions
 
 
-def save_model_metadata(model_name, params, output_path="model_log.xlsx"):
+def _save_model_metadata(model_name, params, output_path="model_log.xlsx"):
     """
     Speichert Metadaten eines trainierten Modells in einer Excel-Datei.
     Falls die Datei existiert, wird ein neuer Eintrag hinzugefügt.
@@ -34,7 +34,7 @@ def save_model_metadata(model_name, params, output_path="model_log.xlsx"):
     df.to_excel(output_path, index=False)
 
 
-def generate_model_name(config_name, target_features, output_path="model_log.xlsx"):
+def _generate_model_name(config_name, target_features, output_path="model_log.xlsx"):
     """
     Generiert einen eindeutigen Modellnamen basierend auf Konfiguration und Zielvariable.
     Die Nummerierung wird automatisch fortgeführt, falls bereits Modelle existieren.
@@ -80,7 +80,7 @@ def generate_model_name(config_name, target_features, output_path="model_log.xls
     return f"{prefix}_{next_number:03d}"
 
 
-def prepare_data(config, target_features, stations, measurements):
+def _prepare_data(config, target_features, stations, measurements):
     """
     Bereitet die Datensätze für Training, Validierung und Test vor.
 
@@ -100,7 +100,7 @@ def prepare_data(config, target_features, stations, measurements):
     return train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, target_transformations, scaler_y
 
 
-def build_and_train_model(train_loader, val_loader, config, n_features: int, n_targets: int):
+def _build_and_train_model(train_loader, val_loader, config, n_features: int, n_targets: int):
     """
     Erstellt ein LSTM-Modell und trainiert es.
 
@@ -186,7 +186,7 @@ def run(scenario):
     }
 
     # Daten vorbereiten
-    (train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, target_transformations, scaler_y) = prepare_data(
+    (train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, target_transformations, scaler_y) = _prepare_data(
         model_config, target_features, stations, measurements)
 
     # n_features aus x_full ableiten
@@ -194,12 +194,12 @@ def run(scenario):
     n_targets = len(target_features)
 
     # Modell bauen und trainieren
-    model, history = build_and_train_model(
+    model, history = _build_and_train_model(
         train_ds, val_ds, model_config, n_features, n_targets)
 
     # Metriken berechnen
     metrics_result = calculate_all_metrics(model, test_ds,target_features, target_transformations=target_transformations)
-    model_name = generate_model_name(config_name, target_features)
+    model_name = _generate_model_name(config_name, target_features)
 
     # Modell speichern
     output_dir = os.path.join("models", config_name)
@@ -210,7 +210,7 @@ def run(scenario):
     early_stopped = len(history["train_loss"])
 
     # Modell-Metadaten speichern
-    save_model_metadata(
+    _save_model_metadata(
         model_name=model_name,
         params={
             **model_config,

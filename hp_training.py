@@ -22,7 +22,7 @@ SCENARIO_GETTERS = {
 }
 
 
-def parse_args():
+def _parse_args():
     """
     Funktion, die Argumente aus Aufrufen in der Konsole einliest
     Arugumente:
@@ -47,7 +47,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def objective(trial, data, n_features, n_targets):
+def _objective(trial, data, n_features, n_targets):
     """
     Optuna-Zielfunktion: Trainiert ein LSTM mit den vorgeschlagenen
     Hyperparametern und gibt den besten Validierungsverlust zurück.
@@ -107,7 +107,7 @@ def objective(trial, data, n_features, n_targets):
     return min(history["val_loss"])
 
 
-def save_best_artifacts(study, best_model, history, data, config_name,
+def _save_best_artifacts(study, best_model, history, data, config_name,
                         target_features, stations, measurements,
                         output_root=None):
     """
@@ -220,7 +220,7 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
     study.set_user_attr("seed", SEED)
 
     study.optimize(
-        lambda trial: objective(trial, data, n_features, n_targets),
+        lambda trial: _objective(trial, data, n_features, n_targets),
         n_trials=n_trials
     )
 
@@ -263,7 +263,7 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
     )
 
     # --- Bestes Modell + vollständige Artefakte speichern ---
-    best_config, output_dir = save_best_artifacts(
+    best_config, output_dir = _save_best_artifacts(
         study=study,
         best_model=best_model,
         history=history,
@@ -283,5 +283,5 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
 
 
 if __name__ == "__main__":
-    args = parse_args()
+    args = _parse_args()
     run_hp_training(scenario=args.scenario, n_trials=args.trials)

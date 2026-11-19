@@ -10,7 +10,7 @@ from log_transformation import log_transform_log1p, log_transform_eps, boxcox_tr
 MAX_PREC_NAN_RATIO = 0.20
 
 
-def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
+def _load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
     """
     Lädt eine CSV-Datei, filtert nach einem bestimmten Zeitbereich und optional nach einem Uhrzeit-Suffix,
     wandelt die Datumsangaben in datetime-Objekte um und setzt das Datum als Index.
@@ -48,7 +48,7 @@ def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
         mar_filename = filename.replace("Air-", "Mar-")
         mar_filepath = os.path.join(os.path.dirname(filepath), mar_filename)
         if os.path.exists(mar_filepath):
-            df_mar = load_and_trim_dataframe(mar_filepath, valid_time_suffix=valid_time_suffix)
+            df_mar = _load_and_trim_dataframe(mar_filepath, valid_time_suffix=valid_time_suffix)
             df_mar.rename(columns={"value": "value_mar"}, inplace=True)
             df = df.join(df_mar, how='outer')
             df["value"] = df["value"].fillna(df["value_mar"])
@@ -57,7 +57,7 @@ def load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
     return df
 
 
-def create_standard_measurement_df(filename, measure, interval, directory="Data"):
+def _create_standard_measurement_df(filename, measure, interval, directory="Data"):
     """
     Erstellt aus einer Messwert-CSV einen zeitnormalisierten DataFrame mit standardisiertem Spaltennamen.
 
@@ -68,7 +68,7 @@ def create_standard_measurement_df(filename, measure, interval, directory="Data"
     :return: Aufbereiteter DataFrame mit standardisiertem Spaltennamen
     """
     filepath = os.path.join(directory, filename)
-    df = load_and_trim_dataframe(filepath)
+    df = _load_and_trim_dataframe(filepath)
     df = df.resample(interval).mean()
 
     station = filename.split("-")[0]
@@ -79,7 +79,7 @@ def create_standard_measurement_df(filename, measure, interval, directory="Data"
     return df
 
 
-def create_precipitation_df(station, interval, directory="Data"):
+def _create_precipitation_df(station, interval, directory="Data"):
     """
     Erstellt aus einer Niederschlagsdatei einen summierten DataFrame, basierend auf einem vorgegebenen Zeitindex.
 
@@ -89,7 +89,7 @@ def create_precipitation_df(station, interval, directory="Data"):
     :return: Aufbereiteter DataFrame mit summierten Niederschlagswerten
     """
     filepath = os.path.join(directory, f"{station}-prec.csv")
-    df = load_and_trim_dataframe(filepath, valid_time_suffix=None) #None, weil Prec-Daten summiert werden müssen
+    df = _load_and_trim_dataframe(filepath, valid_time_suffix=None) #None, weil Prec-Daten summiert werden müssen
     df.rename(columns={"value": f"{station}_prec"}, inplace=True)
 
     df = df.resample(interval).sum(min_count=1)
@@ -104,7 +104,7 @@ def create_precipitation_df(station, interval, directory="Data"):
 
     return df
 
-def get_station_coordinates(directory="Data"):
+def _get_station_coordinates(directory="Data"):
     """
     Liest Koordinaten aus Mau_instrumentation.csv aus und erstellt ein Mappeing über Stationen
 
@@ -120,7 +120,7 @@ def get_station_coordinates(directory="Data"):
 
     return coords_dict
 
-def impute_precipitation(df, station_coords, p = 2):
+def _impute_precipitation(df, station_coords, p = 2):
     """
     Gewichtete räumliche Interpolation (IDW) für Niederschlag.
 
@@ -168,7 +168,7 @@ def impute_precipitation(df, station_coords, p = 2):
 
     return df
 
-def create_filenames(stations, measurements):
+def _create_filenames(stations, measurements):
     """
     Erzeugt eine Liste an Dateinamen für alle Stations-Messwert-Kombinationen.
 
@@ -195,28 +195,28 @@ def load_data(stations, measurements, target_features, interval="10min"):
     :param interval: Zeitintervall für das Resampling
     :return: Kombinierter DataFrame aller Zeitreihen & Dictionary über Transformation der target-Features
     """
-    filenames = create_filenames(stations, measurements)
+    filenames = _create_filenames(stations, measurements)
     frames = []
 
     for filename in filenames:
         measure = filename.split("-")[1].split(".")[0]
         if measure == "prec":
             continue
-        frames.append(create_standard_measurement_df(filename, measure, interval=interval))
+        frames.append(_create_standard_measurement_df(filename, measure, interval=interval))
 
     # ── Niederschlag laden ──
     prec_frames = []
     for station in stations:
         if "prec" in measurements.get(station, []):
-            prec_df = create_precipitation_df(station, interval)
+            prec_df = _create_precipitation_df(station, interval)
             if prec_df is not None:  # ← None-Check für ausgeschlossene Stationen
                 prec_frames.append(prec_df)
 
     # ── Niederschlag zusammenführen und imputieren ──
     if prec_frames:
         prec_combined = pd.concat(prec_frames, axis=1)
-        station_coords = get_station_coordinates()
-        prec_combined = impute_precipitation(prec_combined,station_coords)
+        station_coords = _get_station_coordinates()
+        prec_combined = _impute_precipitation(prec_combined,station_coords)
         frames.append(prec_combined)
 
     df = pd.concat(frames, axis=1)
@@ -283,7 +283,7 @@ def load_data(stations, measurements, target_features, interval="10min"):
     return df,truth_mask, target_transformations
 
 
-def split_dataset(df, split_ratios=(0.6, 0.2, 0.2)):
+def _split_dataset(df, split_ratios=(0.6, 0.2, 0.2)):
     """
     Teilt den DataFrame in Trainings-, Validierungs- und Testset gemäß gegebenem Verhältnis.
 
@@ -302,7 +302,7 @@ def split_dataset(df, split_ratios=(0.6, 0.2, 0.2)):
     return train_df, val_df, test_df
 
 
-def scale_features(train_df, val_df, test_df, target_features):
+def _scale_features(train_df, val_df, test_df, target_features):
     """
     Skaliert alle Merkmale außer der Zielvariablen mithilfe eines MinMax-Scalers.
 
@@ -332,7 +332,7 @@ def scale_features(train_df, val_df, test_df, target_features):
     return train_scaled, val_scaled, test_scaled, scaler
 
 
-def interleave_inputs(x_scaled, truth_mask_values):
+def _interleave_inputs(x_scaled, truth_mask_values):
     """
     Erstellt das [Wert, Maske, Wert, Maske] Format.
     :param x_scaled: Skalierte x-Werte
@@ -350,7 +350,7 @@ def interleave_inputs(x_scaled, truth_mask_values):
 
 
 
-def prepare_targets(train_df, val_df, test_df, target_features, truth_mask_df):
+def _prepare_targets(train_df, val_df, test_df, target_features, truth_mask_df):
     """
     Extrahiert die Zielvariablen aus den DataFrames und wandelt sie in passende Numpy-Arrays um.
 
@@ -527,25 +527,25 @@ def prepare_data_arrays(stations: list, measurements: dict, target_features: str
     df = df.apply(pd.to_numeric, errors="coerce")
 
     # Split
-    train_df, val_df, test_df = split_dataset(df)
+    train_df, val_df, test_df = _split_dataset(df)
 
     # Skalierung
-    x_train_scaled, x_val_scaled, x_test_scaled, scaler = scale_features(
+    x_train_scaled, x_val_scaled, x_test_scaled, scaler = _scale_features(
         train_df, val_df, test_df, target_features
     )
-    y_train, y_val, y_test, y_train_mask, y_val_mask, y_test_mask = prepare_targets(
+    y_train, y_val, y_test, y_train_mask, y_val_mask, y_test_mask = _prepare_targets(
         train_df, val_df, test_df, target_features, truth_mask
     )
 
     #Interleaving: Kombinieren Input-Feature mit Masking:
     feature_cols = [c for c in df.columns if c not in target_features]
-    x_train_interleaved = interleave_inputs(
+    x_train_interleaved = _interleave_inputs(
         x_train_scaled, truth_mask.loc[train_df.index, feature_cols].values
     )
-    x_val_interleaved = interleave_inputs(
+    x_val_interleaved = _interleave_inputs(
         x_val_scaled, truth_mask.loc[val_df.index, feature_cols].values
     )
-    x_test_interleaved = interleave_inputs(
+    x_test_interleaved = _interleave_inputs(
         x_test_scaled, truth_mask.loc[test_df.index, feature_cols].values
     )
 
@@ -625,7 +625,7 @@ def create_final_ds(
 
     # Vollständige Eingabe für full-Dataset
     x_full_scaled = scaler.transform(df.drop(columns=target_features))
-    x_full = interleave_inputs(x_full_scaled, truth_mask[feature_cols].values)
+    x_full = _interleave_inputs(x_full_scaled, truth_mask[feature_cols].values)
 
     full_dataset = TimeSeriesDatasetWithTimestamps(
         x_full, y_full, timestamps_full, seq_length
