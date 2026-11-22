@@ -7,7 +7,12 @@ from datetime import datetime
 from lstm_model import create_model, train_model, set_seed
 from data_prepro import create_final_ds
 from scenario_config import *
-from evaluate_model import calculate_all_metrics, save_split_boundaries, evaluate_and_store_full_predictions
+from evaluate_model import (
+    calculate_all_metrics,
+    save_split_boundaries,
+    evaluate_and_store_full_predictions,
+    NITRATE_TARGET_SUFFIX,
+)
 
 
 def _save_model_metadata(model_name, params, output_path="model_log.xlsx"):
@@ -132,7 +137,7 @@ def _build_and_train_model(train_loader, val_loader, config, n_features: int, n_
     return model, history
 
 
-def run(scenario):
+def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool = False):
     """
     Führt den gesamten Modelltrainings-Workflow für ein bestimmtes Szenario aus:
     - Laden der Szenario-Konfiguration
@@ -142,6 +147,14 @@ def run(scenario):
     - Speichern von Modell, Log-Eintrag und Split-Grenzen
     - Evaluation auf vollem Datensatz
     :param scenario: Name des Szenarios ("benchmark", "low_input", "test_code")
+    :param nitrate_only_metrics: Opt-in. Wenn True, werden zusätzlich zu den Metriken
+        über alle Targets die Metriken ausschließlich über die Nitrat-Targets
+        (Endung "_nit") berechnet und mit Suffix "_nit" geloggt (z.B. "MSE_nit").
+        Dadurch bleiben Läufe mit weiteren Output-Variablen (z.B. Discharge) mit
+        reinen Nitrat-Läufen vergleichbar.
+    :param per_target_metrics: Opt-in. Wenn True, werden zusätzlich die Metriken für
+        jedes einzelne Target-Feature geloggt, benannt als "<Metrik>_<Target>"
+        (z.B. "MSE_NF_nit", "KGE_SHA_disch").
     :return: Dictionary mit Modellname und berechneten Metriken
     """
     # Reproduzierbare Initialisierung und Trainingsreihenfolge
@@ -174,6 +187,17 @@ def run(scenario):
 
 #Legacy-Code: not_nit_config, not_lyser_config, low_input_config
 
+    # Nitrat-only-Metriken nur anfordern, wenn auch Nitrat-Targets vorhanden sind
+    nitrate_targets = [
+        target for target in target_features
+        if target.endswith(NITRATE_TARGET_SUFFIX)
+    ]
+    if nitrate_only_metrics and not nitrate_targets:
+        raise ValueError(
+            f"nitrate_only_metrics=True, aber keine Targets mit Endung "
+            f"'{NITRATE_TARGET_SUFFIX}' in {target_features} gefunden."
+        )
+
     model_config = {
         "nodes_lstm": 20,
         "nodes_dense": 0,
@@ -197,8 +221,15 @@ def run(scenario):
     model, history = _build_and_train_model(
         train_ds, val_ds, model_config, n_features, n_targets)
 
-    # Metriken berechnen
-    metrics_result = calculate_all_metrics(model, test_ds,target_features, target_transformations=target_transformations)
+    # Metriken berechnen (optional Nitrat-only und/oder pro einzelnem Target)
+    metrics_result = calculate_all_metrics(
+        model,
+        test_ds,
+        target_features,
+        target_transformations=target_transformations,
+        include_nitrate_only=nitrate_only_metrics,
+        include_per_target=per_target_metrics
+    )
     model_name = _generate_model_name(config_name, target_features)
 
     # Modell speichern
@@ -215,6 +246,10 @@ def run(scenario):
         params={
             **model_config,
             "early_stopped": early_stopped,
+            "metrics_scope": "all+nitrate" if nitrate_only_metrics else "all",
+            "nitrate_targets": ", ".join(nitrate_targets) if nitrate_only_metrics else None,
+            "per_target_metrics": per_target_metrics,
+            "per_target_metrics_targets": ", ".join(target_features) if per_target_metrics else None,
             **metrics_result
         }
     )

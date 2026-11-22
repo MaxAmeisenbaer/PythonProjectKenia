@@ -15,37 +15,28 @@ def _nanmean(values: list[float]) -> float:
     return float(np.mean(finite)) if finite else float("nan")
 
 
-def calculate_all_metrics(model, test_loader, target_features, target_transformations):
+METRIC_NAMES = ("MSE", "RMSE", "MAE", "R2", "NSE", "MBE", "KGE")
+NITRATE_TARGET_SUFFIX = "_nit"
+
+
+def _empty_metrics() -> dict[str, float]:
+    """Liefert ein Metrik-Dictionary mit NaN-Werten."""
+    return {name: float("nan") for name in METRIC_NAMES}
+
+
+def _compute_metrics_per_target(y_true_all, y_pred_all, y_mask_all,
+                                target_features, target_transformations):
     """
-    Bewertet ein trainiertes Modell auf einem Test-Datensatz und berechnet verschiedene Regressionsmetriken.
+    Berechnet alle Regressionsmetriken separat für jedes Target-Feature.
 
-    Nicht beobachtete Zielwerte (Target-Maske == 0 bzw. fehlend/imputiert) werden
-    bei der Metrikberechnung ausgeschlossen.
-
-    :param model:       Das trainierte PyTorch-Modell
-    :param test_loader: DataLoader für den Testdatensatz
-    :param target_features: Liste der Spaltennamen der Target-Features (z.B. ["SHA_nit", "SHA_temp"])
+    :param y_true_all: Wahre Werte [n_samples, n_targets]
+    :param y_pred_all: Vorhersagen [n_samples, n_targets]
+    :param y_mask_all: Beobachtungsmaske [n_samples, n_targets] (1 = beobachtet)
+    :param target_features: Liste der Spaltennamen der Target-Features
     :param target_transformations: Dict mit den Methoden pro Target-Features
-    :return: Dictionary mit gemittelten MSE, RMSE, MAE, R2, NSE, MBE, KGE über alle Target-Features
+    :return: Dictionary {target_name: {metric_name: value}}
     """
-    model.eval()
-    y_true_list = []
-    y_pred_list = []
-    y_mask_list = []
-
-    with torch.no_grad():
-        for x_batch, y_batch, y_mask_batch in test_loader:
-            preds = model(x_batch)
-            y_true_list.append(y_batch.cpu().numpy())
-            y_pred_list.append(preds.cpu().numpy())
-            y_mask_list.append(y_mask_batch.cpu().numpy())
-
-    y_true_all = np.concatenate(y_true_list, axis=0)
-    y_pred_all = np.concatenate(y_pred_list, axis=0)
-    y_mask_all = np.concatenate(y_mask_list, axis=0)
-
-    # Leere Listen in die die Werte über alle Target-Features reingeschrieben werden
-    mse_vals, rmse_vals, mae_vals, r2_vals, nse_vals, mbe_vals, kge_vals = [], [], [], [], [], [], []
+    metrics_per_target = {}
 
     for i, col_name in enumerate(target_features):
         # Nur tatsächlich beobachtete Werte bewerten (0 = fehlend/imputiert)
@@ -55,8 +46,7 @@ def calculate_all_metrics(model, test_loader, target_features, target_transforma
 
         if yt_col.size == 0:
             print(f"  Warnung: {col_name} hat keine beobachteten Testwerte - Metriken = NaN")
-            for values in (mse_vals, rmse_vals, mae_vals, r2_vals, nse_vals, mbe_vals, kge_vals):
-                values.append(np.nan)
+            metrics_per_target[col_name] = _empty_metrics()
             continue
 
         # ── Rücktransformation aus Log-Raum (nur beobachtete Werte) ──
@@ -76,8 +66,7 @@ def calculate_all_metrics(model, test_loader, target_features, target_transforma
 
         if yt.size == 0:
             print(f"  Warnung: {col_name} hat nach Rücktransformation keine gültigen Testwerte - Metriken = NaN")
-            for values in (mse_vals, rmse_vals, mae_vals, r2_vals, nse_vals, mbe_vals, kge_vals):
-                values.append(np.nan)
+            metrics_per_target[col_name] = _empty_metrics()
             continue
 
         # Mean Error Maße
@@ -123,24 +112,109 @@ def calculate_all_metrics(model, test_loader, target_features, target_transforma
         else:
             kge = np.nan
 
-        # Anhängen und zurück in die Schleife
-        mse_vals.append(mse)
-        rmse_vals.append(rmse)
-        mae_vals.append(mae)
-        r2_vals.append(r2)
-        nse_vals.append(nse)
-        mbe_vals.append(mbe)
-        kge_vals.append(kge)
+        metrics_per_target[col_name] = {
+            "MSE": mse,
+            "RMSE": rmse,
+            "MAE": mae,
+            "R2": r2,
+            "NSE": nse,
+            "MBE": mbe,
+            "KGE": kge,
+        }
 
-    return {
-        "MSE": _nanmean(mse_vals),
-        "RMSE": _nanmean(rmse_vals),
-        "MAE": _nanmean(mae_vals),
-        "R2": _nanmean(r2_vals),
-        "NSE": _nanmean(nse_vals),
-        "MBE": _nanmean(mbe_vals),
-        "KGE": _nanmean(kge_vals)
-    }
+    return metrics_per_target
+
+
+def _aggregate_metrics(metrics_per_target, target_features, suffix=""):
+    """
+    Mittelt die Metriken über die angegebenen Target-Features.
+
+    :param metrics_per_target: Dictionary aus _compute_metrics_per_target
+    :param target_features: Targets, über die gemittelt wird
+    :param suffix: optionales Suffix für die Metriknamen (z.B. "_nit")
+    :return: Dictionary mit gemittelten Metriken
+    """
+    aggregated = {}
+    for metric_name in METRIC_NAMES:
+        values = [metrics_per_target[feature][metric_name] for feature in target_features]
+        aggregated[f"{metric_name}{suffix}"] = _nanmean(values)
+    return aggregated
+
+
+def calculate_all_metrics(model, test_loader, target_features, target_transformations,
+                          include_nitrate_only: bool = False,
+                          include_per_target: bool = False):
+    """
+    Bewertet ein trainiertes Modell auf einem Test-Datensatz und berechnet verschiedene Regressionsmetriken.
+
+    Nicht beobachtete Zielwerte (Target-Maske == 0 bzw. fehlend/imputiert) werden
+    bei der Metrikberechnung ausgeschlossen.
+
+    :param model:       Das trainierte PyTorch-Modell
+    :param test_loader: DataLoader für den Testdatensatz
+    :param target_features: Liste der Spaltennamen der Target-Features (z.B. ["SHA_nit", "SHA_temp"])
+    :param target_transformations: Dict mit den Methoden pro Target-Features
+    :param include_nitrate_only: Wenn True, werden zusätzlich die Metriken ausschließlich
+        über die Nitrat-Targets (Endung "_nit") berechnet und mit Suffix "_nit"
+        zurückgegeben (z.B. "MSE_nit"). So bleiben Läufe mit weiteren Output-Variablen
+        (z.B. Discharge) mit reinen Nitrat-Läufen vergleichbar.
+    :param include_per_target: Wenn True, werden zusätzlich die Metriken für jedes
+        einzelne Target-Feature zurückgegeben, benannt als "<Metrik>_<Target>"
+        (z.B. "MSE_NF_nit" oder "KGE_SHA_disch").
+    :return: Dictionary mit gemittelten MSE, RMSE, MAE, R2, NSE, MBE, KGE über alle
+        Target-Features; optional zusätzlich dieselben Metriken mit Suffix "_nit"
+        über die Nitrat-Targets und/oder pro einzelnem Target-Feature.
+    """
+    model.eval()
+    y_true_list = []
+    y_pred_list = []
+    y_mask_list = []
+
+    with torch.no_grad():
+        for x_batch, y_batch, y_mask_batch in test_loader:
+            preds = model(x_batch)
+            y_true_list.append(y_batch.cpu().numpy())
+            y_pred_list.append(preds.cpu().numpy())
+            y_mask_list.append(y_mask_batch.cpu().numpy())
+
+    y_true_all = np.concatenate(y_true_list, axis=0)
+    y_pred_all = np.concatenate(y_pred_list, axis=0)
+    y_mask_all = np.concatenate(y_mask_list, axis=0)
+
+    metrics_per_target = _compute_metrics_per_target(
+        y_true_all, y_pred_all, y_mask_all, target_features, target_transformations
+    )
+
+    # Metriken über alle Target-Features
+    result = _aggregate_metrics(metrics_per_target, target_features)
+
+    # Optional: Metriken nur über die Nitrat-Targets
+    if include_nitrate_only:
+        nitrate_features = [
+            feature for feature in target_features
+            if feature.endswith(NITRATE_TARGET_SUFFIX)
+        ]
+        if nitrate_features:
+            result.update(_aggregate_metrics(
+                metrics_per_target,
+                nitrate_features,
+                suffix=NITRATE_TARGET_SUFFIX
+            ))
+        else:
+            print(f"  Warnung: Keine Targets mit Endung '{NITRATE_TARGET_SUFFIX}' gefunden - "
+                  f"Nitrat-Metriken = NaN")
+            result.update({
+                f"{metric_name}{NITRATE_TARGET_SUFFIX}": float("nan")
+                for metric_name in METRIC_NAMES
+            })
+
+    # Optional: Metriken für jedes einzelne Target-Feature
+    if include_per_target:
+        for feature in target_features:
+            for metric_name in METRIC_NAMES:
+                result[f"{metric_name}_{feature}"] = metrics_per_target[feature][metric_name]
+
+    return result
 
 def save_split_boundaries(train_df, val_df, test_df, save_path):
     """

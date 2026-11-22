@@ -25,6 +25,8 @@ Ziele des Projekts:
 ## Nutzung
 - `hp_training.py` ausführen und beste Parameter-Settings für Modelle ermitteln
 -  In `lstm_main.py` in der `run`-Funktion (Ende des Dokuments) das gewünschte Szenario eingeben ("benchmark","disch","not_ec"...)
+- Optional: `run(scenario="disch", nitrate_only_metrics=True)` berechnet zusätzlich Nitrat-only-Metriken (`MSE_nit`, `RMSE_nit`, ...) und loggt sie in `model_log.xlsx`. Das ist sinnvoll, wenn neben `*_nit` weitere Zielvariablen (z. B. `*_disch`) im Modell sind, damit die Ergebnisse mit reinen Nitrat-Läufen vergleichbar bleiben.
+- Optional: `run(scenario="disch", per_target_metrics=True)` loggt zusätzlich die Metriken für jedes einzelne Target, z. B. `MSE_NF_nit`, `MSE_SHA_nit`, `KGE_TTP_nit` (und analog für weitere Output-Variablen). Beide Optionen lassen sich kombinieren.
 - `lstm_main.py` ausführen
 - für Visualisierung `create_figures.py` ausführen
 
