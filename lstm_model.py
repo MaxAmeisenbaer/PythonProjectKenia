@@ -187,8 +187,47 @@ def _masked_mse_loss(y_pred, y_true, y_mask):
     return loss
 
 
+def _masked_mse_euclidean_loss(y_pred, y_true, y_mask, eps: float = 1e-8):
+    """
+    Berechnet eine per-Target-Euclidean-Variante des MSE.
+
+    Pro Target wird zunächst der MSE berechnet, daraus die Wurzel (RMSE)
+    gezogen und anschließend der Mittelwert über alle beobachteten Targets
+    quadriert. Dadurch trägt jedes Target unabhängig von seiner
+    Beobachtungsanzahl gleich viel zum Loss bei, während der Loss in
+    MSE-ähnlichen Einheiten bleibt.
+
+        L = (mean_t sqrt(MSE_t))^2
+
+    :param y_pred: Vorhersage [batch, n_targets]
+    :param y_true: Wahre Werte [batch, n_targets]
+    :param y_mask: Maske (1=echt, 0=interpoliert) [batch, n_targets]
+    :param eps:    Kleiner Wert für numerische Stabilität
+    :return:       Skalarer Loss
+    """
+    squared_error = (y_pred - y_true) ** 2 * y_mask
+
+    # MSE getrennt pro Target berechnen
+    per_target_sq = torch.sum(squared_error, dim=0)
+    per_target_count = torch.sum(y_mask, dim=0)
+
+    # Targets ohne beobachtete Werte ausschließen
+    valid = per_target_count > 0
+    if not torch.any(valid).item():
+        # Mit y_pred verbunden halten, damit backward() auch für einen
+        # vollständig maskierten Batch funktioniert.
+        return torch.sum(y_pred) * 0.0
+
+    per_target_mse = per_target_sq[valid] / (per_target_count[valid] + eps)
+    per_target_rmse = torch.sqrt(per_target_mse + eps)
+
+    # Mittelwert der RMSEs quadrieren -> MSE-ähnliche Einheiten
+    return torch.mean(per_target_rmse) ** 2
+
+
 def create_model(n_features: int, n_targets: int, nodes_lstm: int, nodes_dense: int,
-                 dropout: float, learning_rate: float, num_layers: int = 2):
+                 dropout: float, learning_rate: float, num_layers: int = 2,
+                 euclidean: bool = False):
     """
     Erstellt ein LSTM-Modell und den Optimierer.
 
@@ -199,11 +238,13 @@ def create_model(n_features: int, n_targets: int, nodes_lstm: int, nodes_dense: 
     :param dropout:       Dropout-Rate
     :param learning_rate: Lernrate des Adam-Optimierers
     :param num_layers:    Anzahl der layers (Tiefe des Modells) default=2
+    :param euclidean:     Wenn True, wird der MSE per-Target-Euclidean aggregiert
+                          (mean_t sqrt(MSE_t))^2 statt über alle Werte gemittelt.
     :return: model, optimizer, loss_fn
     """
     model     = LSTMModel(n_features, n_targets, nodes_lstm, nodes_dense, dropout, num_layers)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    loss_fn   = _masked_mse_loss
+    loss_fn   = _masked_mse_euclidean_loss if euclidean else _masked_mse_loss
 
     return model, optimizer, loss_fn
 
@@ -217,7 +258,7 @@ def train_model(model: nn.Module, train_loader, val_loader,
     :param train_loader: DataLoader für Trainingsdaten
     :param val_loader:   DataLoader für Validierungsdaten
     :param optimizer:    Adam-Optimierer
-    :param loss_fn:      Verlustfunktion (MSE)
+    :param loss_fn:      Verlustfunktion (MSE oder per-Target-Euclidean-MSE)
     :param epochs:       Maximale Epochenanzahl
     :param patience:     Geduld für EarlyStopping
     :return: history (dict mit train_loss und val_loss pro Epoche)
