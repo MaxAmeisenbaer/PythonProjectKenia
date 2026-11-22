@@ -122,8 +122,7 @@ def _build_and_train_model(train_loader, val_loader, config, n_features: int, n_
         nodes_lstm=config["nodes_lstm"],
         nodes_dense=config["nodes_dense"],
         dropout=config["dropout"],
-        learning_rate=config["learning_rate"],
-        euclidean=config.get("euclidean", False)
+        learning_rate=config["learning_rate"]
     )
 
     history = train_model(
@@ -138,8 +137,7 @@ def _build_and_train_model(train_loader, val_loader, config, n_features: int, n_
     return model, history
 
 
-def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool = False,
-        euclidean: bool = False):
+def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool = False):
     """
     Führt den gesamten Modelltrainings-Workflow für ein bestimmtes Szenario aus:
     - Laden der Szenario-Konfiguration
@@ -157,10 +155,6 @@ def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool =
     :param per_target_metrics: Opt-in. Wenn True, werden zusätzlich die Metriken für
         jedes einzelne Target-Feature geloggt, benannt als "<Metrik>_<Target>"
         (z.B. "MSE_NF_nit", "KGE_SHA_disch").
-    :param euclidean: Opt-in. Wenn True, wird der MSE pro Target berechnet, daraus
-        die Wurzel gezogen und der Mittelwert über die Targets quadriert:
-        (mean_t sqrt(MSE_t))^2. Dadurch tragen alle Targets unabhängig von ihrer
-        Beobachtungsanzahl gleich viel zum Loss bei.
     :return: Dictionary mit Modellname und berechneten Metriken
     """
     # Reproduzierbare Initialisierung und Trainingsreihenfolge
@@ -212,8 +206,7 @@ def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool =
         "num_layers": 3,
         "batch_size": 32,
         "seq_length": 6,
-        "epochs": 70,
-        "euclidean": euclidean
+        "epochs": 70
     }
 
     # Daten vorbereiten

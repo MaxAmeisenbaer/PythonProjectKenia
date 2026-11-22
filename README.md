@@ -27,8 +27,6 @@ Ziele des Projekts:
 -  In `lstm_main.py` in der `run`-Funktion (Ende des Dokuments) das gewünschte Szenario eingeben ("benchmark","disch","not_ec"...)
 - Optional: `run(scenario="disch", nitrate_only_metrics=True)` berechnet zusätzlich Nitrat-only-Metriken (`MSE_nit`, `RMSE_nit`, ...) und loggt sie in `model_log.xlsx`. Das ist sinnvoll, wenn neben `*_nit` weitere Zielvariablen (z. B. `*_disch`) im Modell sind, damit die Ergebnisse mit reinen Nitrat-Läufen vergleichbar bleiben.
 - Optional: `run(scenario="disch", per_target_metrics=True)` loggt zusätzlich die Metriken für jedes einzelne Target, z. B. `MSE_NF_nit`, `MSE_SHA_nit`, `KGE_TTP_nit` (und analog für weitere Output-Variablen). Beide Optionen lassen sich kombinieren.
-- Optional: `run(scenario="disch", euclidean=True)` verwendet eine per-Target-Euclidean-Variante des MSE als Loss: Pro Target wird der MSE berechnet, daraus die Wurzel (RMSE) gezogen und anschließend der Mittelwert über die Targets quadriert, also `(mean_t sqrt(MSE_t))^2`. Dadurch tragen alle Targets unabhängig von ihrer Beobachtungsanzahl gleich viel zum Loss bei. Default ist `euclidean=False` (normaler MSE).
-- Für das Hyperparameter-Tuning kann die Loss-Variante analog mit `python hp_training.py --euclidean` gewählt werden. MSE- und Euclidean-Läufe verwenden getrennte Optuna-Studien und Ausgabeordner.
 - `lstm_main.py` ausführen
 - für Visualisierung `create_figures.py` ausführen
 
