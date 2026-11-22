@@ -274,6 +274,7 @@ def train_model(model: nn.Module, train_loader, val_loader,
         history["val_loss"].append(val_loss)
         history["val_kge"].append(val_kge)
 
+        #Output in the TUI (Verbose)
         current_lr=optimizer.param_groups[0]["lr"]
         print(f"Epoch {epoch+1}/{epochs} "
               f"| Train Loss: {train_loss:.4f} "
