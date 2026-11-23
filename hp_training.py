@@ -44,10 +44,18 @@ def _parse_args():
         default=20,
         help="Number of Optuna trials (default: 20)"
     )
+    parser.add_argument(
+        "--euclidean",
+        action="store_true",
+        help=(
+            "Use the per-target Euclidean MSE aggregation "
+            "(mean_t sqrt(MSE_t))^2 instead of the global MSE."
+        )
+    )
     return parser.parse_args()
 
 
-def _objective(trial, data, n_features, n_targets):
+def _objective(trial, data, n_features, n_targets, euclidean: bool = False):
     """
     Optuna-Zielfunktion: Trainiert ein LSTM mit den vorgeschlagenen
     Hyperparametern und gibt den besten Validierungsverlust zurück.
@@ -56,6 +64,8 @@ def _objective(trial, data, n_features, n_targets):
     :param data:       Vorbereitete Arrays aus prepare_data_arrays()
     :param n_features: Anzahl der Eingabe-Features
     :param n_targets:  Anzahl der Zielvariablen
+    :param euclidean:  Wenn True, wird die per-Target-Euclidean-MSE-Variante
+                       als Loss verwendet.
     :return:           Bester Validierungsverlust (val_loss) als float
     """
     # Jeder Trial bekommt einen reproduzierbaren, aber eigenen Seed.
@@ -89,7 +99,8 @@ def _objective(trial, data, n_features, n_targets):
         nodes_dense=nodes_dense,
         dropout=dropout,
         learning_rate=learning_rate,
-        num_layers=num_layers
+        num_layers=num_layers,
+        euclidean=euclidean
     )
 
     # --- Training ---
@@ -109,7 +120,7 @@ def _objective(trial, data, n_features, n_targets):
 
 def _save_best_artifacts(study, best_model, history, data, config_name,
                         target_features, stations, measurements,
-                        output_root=None):
+                        output_root=None, euclidean: bool = False):
     """
     Speichert das beste Modell sowie alle für eine spätere Wiederverwendung
     benötigten Preprocessing- und Konfigurationsartefakte.
@@ -123,12 +134,16 @@ def _save_best_artifacts(study, best_model, history, data, config_name,
     :param stations:         Verwendete Stationen
     :param measurements:     Verwendete Messgrößen pro Station
     :param output_root:      Wurzelverzeichnis für HP-Tuning-Artefakte (default: OUTPUT_ROOT)
+    :param euclidean:        Wenn True, werden die Artefakte in einem eigenen
+                             Unterordner abgelegt, damit MSE- und Euclidean-Läufe
+                             sich nicht gegenseitig überschreiben.
     :return:                 (best_config, output_dir)
     """
     if output_root is None:
         output_root = OUTPUT_ROOT
 
-    output_dir = os.path.join(output_root, config_name)
+    run_name = f"{config_name}_euclidean" if euclidean else config_name
+    output_dir = os.path.join(output_root, run_name)
     os.makedirs(output_dir, exist_ok=True)
 
     model_path = os.path.join(output_dir, "best_model.pt")
@@ -147,6 +162,8 @@ def _save_best_artifacts(study, best_model, history, data, config_name,
 
     best_config = {
         "config_name": config_name,
+        "run_name": run_name,
+        "euclidean": euclidean,
         "study_name": study.study_name,
         "best_trial_number": study.best_trial.number,
         "best_value": study.best_value,
@@ -154,6 +171,7 @@ def _save_best_artifacts(study, best_model, history, data, config_name,
         "model_config": {
             **study.best_params,
             "early_stopped": len(history["train_loss"]),
+            "euclidean": euclidean,
         },
         "n_features": data["n_features"],
         "n_targets": len(target_features),
@@ -182,13 +200,17 @@ def _save_best_artifacts(study, best_model, history, data, config_name,
     return best_config, output_dir
 
 
-def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
+def run_hp_training(scenario: str = "benchmark", n_trials: int = 20,
+                    euclidean: bool = False):
     """
     Führt die Optuna-Studie aus und speichert das beste Modell samt
     vollständiger Konfiguration und Preprocessing-Objekte.
 
     :param scenario:        Szenario, welches für Benchmark genutzt werden soll
     :param n_trials:        Menge an Bayes-Kombinationen, die getestet werden
+    :param euclidean:       Wenn True, wird die per-Target-Euclidean-MSE-Variante
+                            als Loss verwendet. MSE- und Euclidean-Läufe landen in
+                            getrennten Optuna-Studien und Ausgabeordnern.
     """
     # Szenario laden
     stations, measurements, target_features, config_name = SCENARIO_GETTERS[scenario]()
@@ -205,8 +227,10 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
     )
     n_features = data["n_features"]
 
-    # Konfigurationsspezifischer Studienname, damit Szenarien nicht kollidieren.
-    study_name = f"lstm_tuning_{config_name}"
+    # Konfigurationsspezifischer Studienname, damit Szenarien und Loss-Varianten
+    # nicht kollidieren. MSE und Euclidean haben unterschiedliche Loss-Skalen
+    # und dürfen deshalb nicht in derselben Studie gemischt werden.
+    study_name = f"lstm_tuning_{config_name}" + ("_euclidean" if euclidean else "")
     study = optuna.create_study(
         study_name=study_name,
         storage=STORAGE,
@@ -218,9 +242,11 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
     study.set_user_attr("config_name", config_name)
     study.set_user_attr("target_features", target_features)
     study.set_user_attr("seed", SEED)
+    study.set_user_attr("euclidean", euclidean)
 
     study.optimize(
-        lambda trial: _objective(trial, data, n_features, n_targets),
+        lambda trial: _objective(trial, data, n_features, n_targets,
+                                 euclidean=euclidean),
         n_trials=n_trials
     )
 
@@ -249,7 +275,8 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
         nodes_dense=best["nodes_dense"],
         dropout=best["dropout"],
         learning_rate=best["learning_rate"],
-        num_layers=best["num_layers"]
+        num_layers=best["num_layers"],
+        euclidean=euclidean
     )
 
     history = train_model(
@@ -272,6 +299,7 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
         target_features=target_features,
         stations=stations,
         measurements=measurements,
+        euclidean=euclidean,
     )
 
     print(f"\nBestes Modell gespeichert unter: {os.path.join(output_dir, 'best_model.pt')}")
@@ -284,4 +312,8 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20):
 
 if __name__ == "__main__":
     args = _parse_args()
-    run_hp_training(scenario=args.scenario, n_trials=args.trials)
+    run_hp_training(
+        scenario=args.scenario,
+        n_trials=args.trials,
+        euclidean=args.euclidean
+    )
