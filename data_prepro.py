@@ -6,19 +6,19 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
 from log_transformation import log_transform_log1p, log_transform_eps, boxcox_transform, analyze_skewness
 
-# ── Schwellenwert: Precipitation-Stationen mit mehr NaN-Anteil werden ausgeschlossen ──
+# ── Threshold: precipitation stations with a higher NaN ratio are excluded ──
 MAX_PREC_NAN_RATIO = 0.20
 
 
 def _load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
     """
-    Lädt eine CSV-Datei, filtert nach einem bestimmten Zeitbereich und optional nach einem Uhrzeit-Suffix,
-    wandelt die Datumsangaben in datetime-Objekte um und setzt das Datum als Index.
-    Bei Air-Daten werden die Daten mit Mar-Daten angereichert.
+    Loads a CSV file, filters by a specific time range and optionally by a time-of-day suffix,
+    converts the dates to datetime objects, and sets the date as index.
+    For Air data, the data is enriched with Mar data.
 
-    :param filepath: Pfad zur CSV-Datei
-    :param valid_time_suffix: Uhrzeit-Suffix für die Filterung (z.B. "0:00" für volle 10-min), None deaktiviert Filter
-    :return: Getrimmter DataFrame mit datetime-Index
+    :param filepath: Path to the CSV file
+    :param valid_time_suffix: Time-of-day suffix for filtering (e.g., "0:00" for full 10-min), None disables filtering
+    :return: Trimmed DataFrame with datetime index
     """
     start_date = "2015-04-28 11:00:00"
     end_date = "2019-11-21 12:00:00"
@@ -42,7 +42,7 @@ def _load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
 
     df = pd.concat(filtered_chunks, axis=0, copy=False)
 
-    # Zusammenführen Air und Mar
+    # Merge Air and Mar
     filename = os.path.basename(filepath)
     if filename.startswith("Air-"):
         mar_filename = filename.replace("Air-", "Mar-")
@@ -59,13 +59,13 @@ def _load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
 
 def _create_standard_measurement_df(filename, measure, interval, directory="Data"):
     """
-    Erstellt aus einer Messwert-CSV einen zeitnormalisierten DataFrame mit standardisiertem Spaltennamen.
+    Creates a time-normalized DataFrame with a standardized column name from a measurement CSV.
 
-    :param filename: Dateiname der Messreihe
-    :param measure: Kürzel des Messwertes (z.B. 'temp', 'ec')
-    :param interval: Zeitintervall für das Resampling (z.B. '10min')
-    :param directory: Datenverzeichnis
-    :return: Aufbereiteter DataFrame mit standardisiertem Spaltennamen
+    :param filename: Filename of the measurement series
+    :param measure: Short code for the measurement (e.g., 'temp', 'ec')
+    :param interval: Time interval for resampling (e.g., '10min')
+    :param directory: Data directory
+    :return: Prepared DataFrame with a standardized column name
     """
     filepath = os.path.join(directory, filename)
     df = _load_and_trim_dataframe(filepath)
@@ -81,20 +81,20 @@ def _create_standard_measurement_df(filename, measure, interval, directory="Data
 
 def _create_precipitation_df(station, interval, directory="Data"):
     """
-    Erstellt aus einer Niederschlagsdatei einen summierten DataFrame, basierend auf einem vorgegebenen Zeitindex.
+    Creates a summed DataFrame from a precipitation file based on a predefined time index.
 
-    :param station: Stationskürzel
-    :param interval: Zeitintervall für das Resampling
-    :param directory: Datenverzeichnis
-    :return: Aufbereiteter DataFrame mit summierten Niederschlagswerten
+    :param station: Station short code (Identifiyer)
+    :param interval: Time interval for resampling
+    :param directory: Data directory
+    :return: Prepared DataFrame with summed precipitation values
     """
     filepath = os.path.join(directory, f"{station}-prec.csv")
-    df = _load_and_trim_dataframe(filepath, valid_time_suffix=None) #None, weil Prec-Daten summiert werden müssen
+    df = _load_and_trim_dataframe(filepath, valid_time_suffix=None) #None because prec data must be summed
     df.rename(columns={"value": f"{station}_prec"}, inplace=True)
 
     df = df.resample(interval).sum(min_count=1)
 
-    # Prüfe NaN-Anteil
+    # Check NaN ratio
     nan_ratio = df.isna().sum().sum() / len(df)
     if nan_ratio > MAX_PREC_NAN_RATIO:
         print(f"  ⚠️  {station}_prec: {nan_ratio:.1%} NaN → Station wird ausgeschlossen")
@@ -106,10 +106,10 @@ def _create_precipitation_df(station, interval, directory="Data"):
 
 def _get_station_coordinates(directory="Data"):
     """
-    Liest Koordinaten aus Mau_instrumentation.csv aus und erstellt ein Mappeing über Stationen
+    Reads coordinates from Mau_instrumentation.csv and creates a mapping over stations
 
-    :param directory: Pfad zum Ordner für Datei
-    :return: Dictonary mit Stationskürzel und log/lat
+    :param directory: Path to the folder for the file
+    :return: Dictionary with station short code and lon/lat
     """
     filepath = os.path.join(directory, "Mau_instrumentation.csv")
     df = pd.read_csv(filepath)
@@ -122,11 +122,11 @@ def _get_station_coordinates(directory="Data"):
 
 def _impute_precipitation(df, station_coords, p = 2):
     """
-    Gewichtete räumliche Interpolation (IDW) für Niederschlag.
+    Weighted spatial interpolation (IDW) for precipitation.
 
-    :param df: Der kombinierte DataFrame mit allen prec-Spalten
+    :param df: The combined DataFrame with all prec columns
     :param station_coords: Dict {station_name: (lat, lon)}
-    :param p: Power-Parameter für die Gewichtung (höher = näherliegende Stationen dominieren mehr)
+    :param p: Power parameter for weighting (higher = nearby stations dominate more)
     """
     prec_cols = [c for c in df.columns if c.endswith("_prec")]
 
@@ -149,19 +149,19 @@ def _impute_precipitation(df, station_coords, p = 2):
                     other_station = other_col.split("_")[0]
                     if other_station not in station_coords:
                         continue
-                    # Verwendet nur Stationen, die zu X einen Wert haben
+                    # Uses only stations that have a value for X
                     if not np.isnan(df.at[idx, other_col]):
-                        # Berechnet Distanz (hier nur linie, korrekter wäre Haversine)
+                        # Computes distance (line-only implemented, Haversine would be more correct)
                         other_coord = np.array(station_coords[other_station])
                         dist = np.linalg.norm(target_coord - other_coord)
-                        # div /0 vermeiden
+                        # Avoid division by 0
                         dist = max(dist, 0.000001)
                         weight = 1.0 / (dist ** p)
                         weights.append(weight)
                         values.append(df.at[idx, other_col])
 
                 if weights:
-                    # Gewichteter Mittelwert (explizit auf Spaltendtype casten)
+                    # Weighted mean (explicitly cast to column dtype)
                     df.at[idx, col] = col_dtype(np.average(values, weights=weights))
                 else:
                     df.at[idx, col] = col_dtype(0.0)
@@ -170,11 +170,11 @@ def _impute_precipitation(df, station_coords, p = 2):
 
 def _create_filenames(stations, measurements):
     """
-    Erzeugt eine Liste an Dateinamen für alle Stations-Messwert-Kombinationen.
+    Creates a list of filenames for all station-measurement combinations.
 
-    :param stations: Liste der Stationsnamen
-    :param measurements: Dictionary mit Messwertlisten je Station
-    :return: Liste der Dateinamen (z.B. 'SHA-temp.csv')
+    :param stations: List of station names
+    :param measurements: Dictionary with measurement lists per station
+    :return: List of filenames (e.g., 'SHA-temp.csv')
     """
     filenames = [
         f"{station}-{measure}.csv"
@@ -187,13 +187,13 @@ def _create_filenames(stations, measurements):
 
 def load_data(stations, measurements, target_features, interval="10min"):
     """
-    Lädt, kombiniert und verarbeitet alle relevanten Zeitreihen (Messwerte und Niederschlag).
+    Loads, combines, and processes all relevant time series (measurements and precipitation).
 
-    :param stations: Liste der Stationsnamen
-    :param measurements: Dictionary mit Messwertlisten je Station
-    :param target_features: Liste von Target-Features
-    :param interval: Zeitintervall für das Resampling
-    :return: Kombinierter DataFrame aller Zeitreihen & Dictionary über Transformation der target-Features
+    :param stations: List of station names
+    :param measurements: Dictionary with measurement lists per station
+    :param target_features: List of target features
+    :param interval: Time interval for resampling
+    :return: Combined DataFrame of all time series & dictionary with transformation of the target features
     """
     filenames = _create_filenames(stations, measurements)
     frames = []
@@ -204,15 +204,15 @@ def load_data(stations, measurements, target_features, interval="10min"):
             continue
         frames.append(_create_standard_measurement_df(filename, measure, interval=interval))
 
-    # ── Niederschlag laden ──
+    # ── Load precipitation ──
     prec_frames = []
     for station in stations:
         if "prec" in measurements.get(station, []):
             prec_df = _create_precipitation_df(station, interval)
-            if prec_df is not None:  # ← None-Check für ausgeschlossene Stationen
+            if prec_df is not None:  # ← None check for excluded stations
                 prec_frames.append(prec_df)
 
-    # ── Niederschlag zusammenführen und imputieren ──
+    # ── Merge and impute precipitation ──
     if prec_frames:
         prec_combined = pd.concat(prec_frames, axis=1)
         station_coords = _get_station_coordinates()
@@ -221,19 +221,19 @@ def load_data(stations, measurements, target_features, interval="10min"):
 
     df = pd.concat(frames, axis=1)
 
-    #An welchen Stellen ist nicht NA (muss VOR jeder Imputation passieren)
+    #Where values are not NA (must happen BEFORE any imputation)
     truth_mask = df.notna().astype(np.float32)
 
-    # ── NaN-Behandlung VOR der Transformation ──
-    # Transformationen (insb. Box-Cox) benötigen endliche Werte, daher erst füllen.
+    # ── NaN handling BEFORE the transformation ──
+    # Transformations (especially Box-Cox) require finite values, so fill first.
     n_before = len(df)
     nan_count_before = df.isna().sum().sum()
 
-    # 1. Interpolation für kleine innere Lücken (limit begrenzt max. Lückenlänge)
+    # 1. Interpolation for small inner gaps (limit caps the maximum gap length)
     df = df.interpolate(method="time", limit=6)
 
 
-    # 2. Restliche NaN-Zeilen füllen
+    # 2. Fill remaining NaN rows
     df = df.ffill().bfill()
     df = df.fillna(df.mean())
 
@@ -243,21 +243,21 @@ def load_data(stations, measurements, target_features, interval="10min"):
     print(f"NaN-Bereinigung: {nan_count_before} NaN in {n_before} Zeilen"
           f" → {nan_count_after} NaN in {n_after} Zeilen"
           f" ({n_before - n_after} Zeilen entfernt)")
-    # ── Ende NaN-Behandlung ──
+    # ── End of NaN handling ──
 
-    # Skewness-Analyse (auf dem NaN-freien Datenstand)
+    # Skewness analysis (on the NaN-free data state)
     skew_dict = analyze_skewness(df)
 
 
-    #log-Transformation je nach skew und Anteil von Nullwerten
+    #log transformation depending on skew and share of zero values
     target_transformations = {}
     for col, stats in skew_dict.items():
         s = stats["skew"]
         pz = stats["pct_zero"]
 
-        # Log-Transformationen sind nur für gültige Definitionsbereiche erlaubt,
-        # sonst entstehen NaN (z.B. log(negativ)). In dem Fall auf Box-Cox
-        # ausweichen, die per Shift auch negative Werte verarbeiten kann.
+        # Log transformations are only allowed for valid domains;
+        # otherwise NaNs occur (e.g., log(negative)). In that case,
+        # fall back to Box-Cox, which can handle negative values via a shift.
         min_val = df[col].min()
 
         if s > 1 and pz > 10 and min_val > -1:
@@ -269,7 +269,7 @@ def load_data(stations, measurements, target_features, interval="10min"):
             df = log_transform_eps(df, col, epsilon=1e-6)
             trans_info = {"type": "log_eps", "params": {"epsilon": 1e-6}}
         elif s > 1 or 0.5 < s <= 1:
-            #boxcox-transformation (auch Fallback für negative Werte)
+            #boxcox transformation (also a fallback for negative values)
             df, params = boxcox_transform(df, col)
             trans_info = {"type": "boxcox", "params": params}
         else:
@@ -285,10 +285,10 @@ def load_data(stations, measurements, target_features, interval="10min"):
 
 def _split_dataset(df, split_ratios=(0.6, 0.2, 0.2)):
     """
-    Teilt den DataFrame in Trainings-, Validierungs- und Testset gemäß gegebenem Verhältnis.
+    Splits the DataFrame into training, validation, and test sets according to the given ratio.
 
-    :param df: Vollständiger DataFrame
-    :param split_ratios: Tuple mit (Train, Val, Test)-Anteilen
+    :param df: Full DataFrame
+    :param split_ratios: Tuple with (train, val, test) proportions
     :return: train_df, val_df, test_df
     """
     n = len(df)
@@ -304,19 +304,19 @@ def _split_dataset(df, split_ratios=(0.6, 0.2, 0.2)):
 
 def _scale_features(train_df, val_df, test_df, target_features):
     """
-    Skaliert alle Merkmale außer der Zielvariablen mithilfe eines MinMax-Scalers.
+    Scales all features except the target variable using a MinMax scaler.
 
-    :param train_df: Trainingsdaten
-    :param val_df: Validierungsdaten
-    :param test_df: Testdaten
-    :param target_features: Name der Zielvariable (nicht zu skalieren)
-    :return: Skalierte Arrays (train, val, test) und der verwendete Scaler
+    :param train_df: Training data
+    :param val_df: Validation data
+    :param test_df: Test data
+    :param target_features: Name of the target variable (not to be scaled)
+    :return: Scaled arrays (train, val, test) and the scaler used
     """
     scaler = MinMaxScaler()
 
     train_features = train_df.drop(columns=target_features)
 
-    # ── Sicherheitscheck ──
+    # ── Safety check ──
     if train_features.isna().any().any():
         nan_cols = train_features.columns[train_features.isna().any()].tolist()
         raise ValueError(
@@ -334,17 +334,17 @@ def _scale_features(train_df, val_df, test_df, target_features):
 
 def _interleave_inputs(x_scaled, truth_mask_values):
     """
-    Erstellt das [Wert, Maske, Wert, Maske] Format.
-    :param x_scaled: Skalierte x-Werte
-    :param truth_mask_values: Werte, die Interpolierung der Variable angeben
-    :return: Maskierte Input-Daten (Info zu Interpolierung
+    Creates the [value, mask, value, mask] format.
+    :param x_scaled: Scaled x values
+    :param truth_mask_values: Values that indicate interpolation of the variable
+    :return: Masked input data (info on interpolation
     """
     n_samples, n_features = x_scaled.shape
     x_interleaved = np.zeros((n_samples, n_features * 2), dtype=np.float32)
 
     for i in range(n_features):
-        x_interleaved[:, 2 * i] = x_scaled[:, i]  # Der skalierte Wert
-        x_interleaved[:, 2 * i + 1] = truth_mask_values[:, i]  # Die 0/1 Maske
+        x_interleaved[:, 2 * i] = x_scaled[:, i]  # The scaled value
+        x_interleaved[:, 2 * i + 1] = truth_mask_values[:, i]  # The 0/1 mask
 
     return x_interleaved
 
@@ -352,24 +352,24 @@ def _interleave_inputs(x_scaled, truth_mask_values):
 
 def _prepare_targets(train_df, val_df, test_df, target_features, truth_mask_df):
     """
-    Extrahiert die Zielvariablen aus den DataFrames und wandelt sie in passende Numpy-Arrays um.
+    Extracts the target variables from the DataFrames and converts them into suitable NumPy arrays.
 
-    :param train_df: Trainingsdaten
-    :param val_df: Validierungsdaten
-    :param test_df: Testdaten
-    :param target_features: Name der Zielvariable
-    :param truth_mask_df: NA-Masking-Daten
-    :return: y_train, y_val, y_test als 2D-Arrays und deren mask-varianten, die die NA-Infos haben
+    :param train_df: Training data
+    :param val_df: Validation data
+    :param test_df: Test data
+    :param target_features: Name of the target variable
+    :param truth_mask_df: NA masking data
+    :return: y_train, y_val, y_test as 2D arrays and their mask variants containing the NA information
     """
     y_train = train_df[target_features].values.astype(np.float32)
     y_val   = val_df[target_features].values.astype(np.float32)
     y_test  = test_df[target_features].values.astype(np.float32)
-    #NA-Masking für Loss-Funktion
+    #NA masking for loss function
     y_train_mask = truth_mask_df[target_features].loc[train_df.index].values.astype(np.float32)
     y_val_mask   = truth_mask_df[target_features].loc[val_df.index].values.astype(np.float32)
     y_test_mask  = truth_mask_df[target_features].loc[test_df.index].values.astype(np.float32)
 
-    #Legacy-Code, falls Probleme
+    #Legacy code in case of problems
     #y_train = np.array(train_df[target_features], ndmin=2).T
     #y_val = np.array(val_df[target_features], ndmin=2).T
     #y_test = np.array(test_df[target_features], ndmin=2).T
@@ -386,20 +386,20 @@ def make_dataloaders(
     num_workers: int = 4
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     """
-    Erzeugt PyTorch DataLoader für Training, Validierung und Test.
+    Creates PyTorch DataLoaders for training, validation, and test.
 
-    :param x_train:     Skalierte Eingabedaten Training
-    :param x_val:       Skalierte Eingabedaten Validierung
-    :param x_test:      Skalierte Eingabedaten Test
-    :param y_train:     Zielvariable Training
-    :param y_val:       Zielvariable Validierung
-    :param y_test:      Zielvariable Test
-    :param y_train_mask: Zielvariable Training NA-Masking
-    :param y_val_mask:   Zielvariable Validation NA-Masking
-    :param y_test_mask:  Zielvariable Testing NA-Masking
-    :param seq_length:  Sequenzlänge für das LSTM
-    :param batch_size:  Batchgröße
-    :param num_workers: Anzahl paralleler Ladeprozesse (0 = Hauptprozess)
+    :param x_train:     Scaled input data training
+    :param x_val:       Scaled input data validation
+    :param x_test:      Scaled input data test
+    :param y_train:     Target variable training
+    :param y_val:       Target variable validation
+    :param y_test:      Target variable test
+    :param y_train_mask: Target variable training NA masking
+    :param y_val_mask:   Target variable validation NA masking
+    :param y_test_mask:  Target variable testing NA masking
+    :param seq_length:  Sequence length for the LSTM
+    :param batch_size:  Batch size
+    :param num_workers: Number of parallel loading processes (0 = main process)
     :return: train_loader, val_loader, test_loader
     """
     train_ds = TimeSeriesDataset(x_train, y_train, y_train_mask, seq_length)
@@ -409,14 +409,14 @@ def make_dataloaders(
     train_loader = DataLoader(
         train_ds,
         batch_size=batch_size,
-        shuffle=True,          # ← True/False - kann geändert werden - True bei Zeitreihen in Training oft üblich
+        shuffle=True,          # ← True/False - can be changed - True is often common for time series in training
         num_workers=num_workers,
         pin_memory=True
     )
     val_loader = DataLoader(
         val_ds,
         batch_size=batch_size,
-        shuffle=False,         # ← Validierung/Test nie shufflen
+        shuffle=False,         # ← Never shuffle validation/test
         num_workers=num_workers,
         pin_memory=True
     )
@@ -432,40 +432,41 @@ def make_dataloaders(
 
 class TimeSeriesDataset(Dataset):
     """
-    PyTorch Dataset für Zeitreihendaten im Sliding-Window-Format.
+    PyTorch Dataset for time series data in sliding-window format.
 
-    Same-Step-Rekonstruktion: Der Zielwert ist der letzte Zeitschritt des Fensters.
+    Same-step reconstruction: the target value is the last time step of the window.
 
-    :param data:       Eingabematrix (numpy array) [n_samples, n_features]
-    :param target:     Zielmatrix (numpy array)    [n_samples, 1]
-    :param seq_length: Anz np.ndarray, seq_length: int):
+    :param data:       Input matrix (numpy array) [n_samples, n_features]
+    :param target:     Target matrix (numpy array)    [n_samples, 1]
+    :param target_mask: Masked Matrix for the Target variable (numpy array), 0=Sampled Data, 1=Interpolated
+    :param seq_length: Count
     """
     def __init__(self, data: np.ndarray, target: np.ndarray,target_mask: np.ndarray, seq_length: int):
-        # Sliding-Window: Fenster i = data[i:i+seq_length].
-        # Ziel ist der letzte Zeitschritt des Fensters (i+seq_length-1), d.h.
-        # Same-Step-Rekonstruktion - konsistent zu TimeSeriesDatasetWithTimestamps.
+        # Sliding window: window i = data[i:i+seq_length].
+        # The target is the last time step of the window (i+seq_length-1), i.e.
+        # Same-step reconstruction - consistent with TimeSeriesDatasetWithTimestamps.
         if data.dtype != np.float32:
             data = data.astype(np.float32, copy=False)
         if target.dtype != np.float32:
             target = target.astype(np.float32, copy=False)
         self.data   = torch.from_numpy(
             np.lib.stride_tricks.sliding_window_view(data, seq_length, axis=0)).float()
-        # Transposieren von Feature-Menge und Seq-Length in Dimensionen (Standartisierung)
+        # Transpose feature set and seq-length into dimensions (standardization)
         if self.data.shape[2] == seq_length:
             self.data = self.data.transpose(1,2)
 
-        # Zielwert ist der letzte Zeitschritt des Fensters
+        # Target value is the last time step of the window
         self.target      = torch.from_numpy(target[seq_length-1:]).float()
         self.target_mask = torch.from_numpy(target_mask[seq_length-1:]).float()
 
         self.seq_length = seq_length
 
     def __len__(self) -> int:
-        # Anzahl Sliding-Window-Länge
+        # Number of sliding-window lengths
         return self.data.shape[0]
 
     def __getitem__(self, idx: int):
-        # Rückgabe des Tensor-Windows und das Ziel-Tensor
+        # Return the tensor window and the target tensor
         x = self.data[idx]
         y = self.target[idx]
         mask = self.target_mask[idx]
@@ -473,12 +474,12 @@ class TimeSeriesDataset(Dataset):
 
 class TimeSeriesDatasetWithTimestamps(Dataset):
     """
-    Eingabematrix [n_samples, n_features]. Der Zielwert ist der letzte Zeitschritt
-    des Fensters (Same-Step-Rekonstruktion) - konsistent zu TimeSeriesDataset.
+    Input matrix [n_samples, n_features]. The target value is the last time step
+    of the window (same-step reconstruction) - consistent with TimeSeriesDataset.
 
-    :param target:      Zielmatrix   (numpy array) [n_samples, 1]
-    :param timestamps:  Zeitstempel-Array (numpy, dtype datetime64 oder str)
-    :param seq_length:  Anz int):
+    :param target:      Target matrix   (numpy array) [n_samples, 1]
+    :param timestamps:  Timestamp array (numpy, dtype datetime64 or str)
+    :param seq_length:  Count
     """
     def __init__(self, data: np.ndarray, target: np.ndarray, timestamps: np.ndarray, seq_length: int):
         self.sequences  = []
@@ -496,29 +497,29 @@ class TimeSeriesDatasetWithTimestamps(Dataset):
         self.targets = torch.tensor(
             np.array(self.targets), dtype=torch.float32
         )
-        # Zeitstempel bleiben als numpy/string – PyTorch kennt kein datetime
+        # Timestamps remain as numpy/string – PyTorch does not know datetime
         self.timestamps = np.array(self.timestamps, dtype=str)
 
     def __len__(self) -> int:
         return len(self.sequences)
 
     def __getitem__(self, idx: int):
-        # Zeitstempel wird separat zurückgegeben, nicht als Tensor
+        # Timestamp is returned separately, not as a tensor
         return self.sequences[idx], self.targets[idx], self.timestamps[idx]
 
 def prepare_data_arrays(stations: list, measurements: dict, target_features: str,
                         interval: str = "10min"):
     """
-    Führt alle hyperparameter-unabhängigen Vorverarbeitungsschritte einmalig aus:
-    Laden, Transformieren, Füllen, Splitten, Skalieren, Targets extrahieren und
-    Input-Masken interleaven.
+    Runs all hyperparameter-independent preprocessing steps once:
+    load, transform, fill, split, scale, extract targets, and
+    interleave input masks.
 
-    Das Ergebnis kann mehrfach für verschiedene seq_length/batch_size verwendet werden
-    (z.B. in der Optuna-Zielfunktion), ohne die CSV-Dateien erneut zu laden.
+    The result can be used multiple times for different seq_length/batch_size
+    (e.g., in the Optuna objective) without reloading the CSV files.
 
-    :return: Dictionary mit allen vorbereiteten Arrays und Metadaten
+    :return: Dictionary with all prepared arrays and metadata
     """
-    # Daten laden
+    # Load data
     df, truth_mask, target_transformations = load_data(
         stations, measurements, target_features, interval=interval
     )
@@ -529,7 +530,7 @@ def prepare_data_arrays(stations: list, measurements: dict, target_features: str
     # Split
     train_df, val_df, test_df = _split_dataset(df)
 
-    # Skalierung
+    # Scaling
     x_train_scaled, x_val_scaled, x_test_scaled, scaler = _scale_features(
         train_df, val_df, test_df, target_features
     )
@@ -537,7 +538,7 @@ def prepare_data_arrays(stations: list, measurements: dict, target_features: str
         train_df, val_df, test_df, target_features, truth_mask
     )
 
-    #Interleaving: Kombinieren Input-Feature mit Masking:
+    #Interleaving: combine input features with masking:
     feature_cols = [c for c in df.columns if c not in target_features]
     x_train_interleaved = _interleave_inputs(
         x_train_scaled, truth_mask.loc[train_df.index, feature_cols].values
@@ -581,24 +582,24 @@ def create_final_ds(
     include_full: bool = True
 ):
     """
-    Komplett-Pipeline: Laden (+ normalisieren) → Splitten → Skalieren → DataLoader erstellen.
+    Complete pipeline: load (+ normalize) → split → scale → create DataLoader.
 
-    Die teure, hyperparameter-unabhängige Vorverarbeitung ist in prepare_data_arrays()
-    ausgelagert und kann für mehrere Aufrufe wiederverwendet werden.
+    The expensive, hyperparameter-independent preprocessing is moved to prepare_data_arrays()
+    and can be reused for multiple calls.
 
-    :param include_full: Wenn False, wird das vollständige Datenset (x_full, full_dataset,
-                         timestamps_full, scaler_y) nicht erzeugt. Für die Hyperparameter-Suche
-                         wird es nicht benötigt und spart je nach seq_length viel Speicher.
+    :param include_full: If False, the full dataset (x_full, full_dataset,
+                         timestamps_full, scaler_y) is not created. It is not needed for the
+                         hyperparameter search and saves a lot of memory depending on seq_length.
     :return: train_loader, val_loader, test_loader,
              train_df, test_df, val_df,
              x_full, full_dataset, timestamps_full, target_transformations, scaler_y
-             (bei include_full=False sind x_full, full_dataset, timestamps_full und scaler_y None)
+             (with include_full=False, x_full, full_dataset, timestamps_full, and scaler_y are None)
     """
     data = prepare_data_arrays(
         stations, measurements, target_features, interval=interval
     )
 
-    # DataLoader erstellen (hängt von seq_length und batch_size ab)
+    # Create DataLoader (depends on seq_length and batch_size)
     train_loader, val_loader, test_loader = make_dataloaders(
         data["x_train"], data["x_val"], data["x_test"],
         data["y_train"], data["y_val"], data["y_test"],
@@ -606,7 +607,7 @@ def create_final_ds(
         seq_length, batch_size
     )
 
-    # Vollständiges Datenset nur bei Bedarf erzeugen (z.B. nicht für die Hyperparameter-Suche)
+    # Create the full dataset only when needed (e.g., not for the hyperparameter search)
     if not include_full:
         return (train_loader, val_loader, test_loader,
                 data["train_df"], data["test_df"], data["val_df"],
@@ -617,13 +618,13 @@ def create_final_ds(
     feature_cols = data["feature_cols"]
     scaler = data["scaler"]
 
-    # Zielvariable separat skalieren
+    # Scale the target variable separately
     timestamps_full = df.index.to_numpy()
     y_full          = df[target_features].values.astype(np.float32)
     scaler_y        = MinMaxScaler()
     scaler_y.fit(y_full)
 
-    # Vollständige Eingabe für full-Dataset
+    # Full input for the full dataset
     x_full_scaled = scaler.transform(df.drop(columns=target_features))
     x_full = _interleave_inputs(x_full_scaled, truth_mask[feature_cols].values)
 

@@ -1,5 +1,5 @@
 import copy
-#Mar-Daten werden in Pipeline zu Air-Daten hinzugefügt
+#Mar data is added to Air data in the pipeline
 MASTER_STATIONS = ["Air","Cha","Chi","Fin","Fun","KFS","Kur","NF","SHA","TF2","TTP","WSH"]
 
 MASTER_MEASUREMENTS = {
@@ -22,11 +22,11 @@ DEFAULT_TARGETS = ["NF_nit","SHA_nit","TTP_nit"]
 
 def _get_scenario_config(scenario_type, missing_measurements=None, custom_targets=None, missing_stations=None):
     """
-    Generiert eine Konfiguration basierend auf dem Master-Set.
-    :param scenario_type: Name/Typ des szenarios
-    :param custom_targets: Output-Targets (default: NF_nit,SHA_nit,TTP_nit)
-    :param missing_stations: Stationen, die ausgeschlossen werden
-    :param missing_measurements: Messvariablen, die ausgeschlossen werden
+    Generates a configuration based on the master set.
+    :param scenario_type: Name/type of the scenario
+    :param custom_targets: Output targets (default: NF_nit,SHA_nit,TTP_nit)
+    :param missing_stations: Stations to be excluded
+    :param missing_measurements: Measurement variables to be excluded
     """
 
     stations = copy.deepcopy(MASTER_STATIONS)
@@ -34,14 +34,14 @@ def _get_scenario_config(scenario_type, missing_measurements=None, custom_target
     target_features = custom_targets if custom_targets is not None else copy.deepcopy(DEFAULT_TARGETS)
     config_name = scenario_type
 
-    # Stationen ausschließen
+    # Exclude stations
     if missing_stations:
         for s in missing_stations:
             if s in stations:
                 stations.remove(s)
                 if s in measurements:
                     del measurements[s]
-    # Messungen ausschließen
+    # Exclude measurements
     if missing_measurements:
         if isinstance(missing_measurements, (list, tuple, set)):
             missing_measurements = {s: list(missing_measurements) for s in measurements}
@@ -54,14 +54,14 @@ def _get_scenario_config(scenario_type, missing_measurements=None, custom_target
                 del measurements[station]
     for t in target_features:
         t_station, t_measure = t.split("_")
-        # ie Station wurde gelöscht
+        # The station was removed
         if t_station not in stations:
             print(f"[RECOVERY] Target '{t}' benötigt Station '{t_station}'. Füge Station wieder hinzu.")
             stations.append(t_station)
             if t_station not in measurements:
                 measurements[t_station] = []
 
-        # Die Station ist da, aber der Messwert wurde gelöscht
+        # The station is present, but the measurement was removed
         if t_measure not in measurements[t_station]:
             print(f"[RECOVERY] Target '{t}' benötigt Messwert '{t_measure}'. Füge Messwert zu '{t_station}' hinzu.")
             if t_measure not in measurements[t_station]:
@@ -74,7 +74,7 @@ def _get_scenario_config(scenario_type, missing_measurements=None, custom_target
 
 def _add_disch():
     """
-    Custom-Setting für disch-Runs
+    Custom setting for disch runs
     :return: custom_targets, missing_stations
     """
 
@@ -83,12 +83,12 @@ def _add_disch():
 
     return custom_targets, excluded_measurements
 
-#In Arbeit - JLUKICHAT
+#Work in progress - JLUKICHAT
 
 def get_test_code_config():
     """
-    Variante, die nur für minimale Tests gemacht ist
-    Übrig bleiben: Fin,Fun Prec + Custom_Targets - durch SHA und TTP_tur werden _get_scenario_config-features getestet
+    Variant intended only for minimal tests
+    Remaining: Fin,Fun prec + custom targets - the _get_scenario_config features are tested via SHA and TTP_tur
     :return: stations, measurements, target_features, config_name
     """
     scenario_type = "test_code"
@@ -212,7 +212,7 @@ def get_not_wind_config():
 
 def get_disch_config():
     """
-    Variante mit Discharge als Target_Feature
+    Variant with discharge as target feature
     :return: stations, measurements, target_features, config_name
     """
     scenario_type = "disch"

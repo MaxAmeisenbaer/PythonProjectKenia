@@ -10,7 +10,7 @@ from log_transformation import inverse_log_transform
 
 
 def _nanmean(values: list[float]) -> float:
-    """Mittelwert über alle endlichen Werte; NaN, wenn keiner vorhanden ist."""
+    """Mean over all finite values; NaN if none are present."""
     finite = [value for value in values if np.isfinite(value)]
     return float(np.mean(finite)) if finite else float("nan")
 
@@ -20,26 +20,26 @@ NITRATE_TARGET_SUFFIX = "_nit"
 
 
 def _empty_metrics() -> dict[str, float]:
-    """Liefert ein Metrik-Dictionary mit NaN-Werten."""
+    """Returns a metric dictionary with NaN values."""
     return {name: float("nan") for name in METRIC_NAMES}
 
 
 def _compute_metrics_per_target(y_true_all, y_pred_all, y_mask_all,
                                 target_features, target_transformations):
     """
-    Berechnet alle Regressionsmetriken separat für jedes Target-Feature.
+    Computes all regression metrics separately for each target feature.
 
-    :param y_true_all: Wahre Werte [n_samples, n_targets]
-    :param y_pred_all: Vorhersagen [n_samples, n_targets]
-    :param y_mask_all: Beobachtungsmaske [n_samples, n_targets] (1 = beobachtet)
-    :param target_features: Liste der Spaltennamen der Target-Features
-    :param target_transformations: Dict mit den Methoden pro Target-Features
+    :param y_true_all: True values [n_samples, n_targets]
+    :param y_pred_all: Predictions [n_samples, n_targets]
+    :param y_mask_all: Observation mask [n_samples, n_targets] (1 = observed)
+    :param target_features: List of column names of the target features
+    :param target_transformations: Dict with the methods per target feature
     :return: Dictionary {target_name: {metric_name: value}}
     """
     metrics_per_target = {}
 
     for i, col_name in enumerate(target_features):
-        # Nur tatsächlich beobachtete Werte bewerten (0 = fehlend/imputiert)
+        # Only evaluate actually observed values (0 = missing/imputed)
         valid = y_mask_all[:, i] > 0
         yt_col = y_true_all[valid, i]
         yp_col = y_pred_all[valid, i]
@@ -49,7 +49,7 @@ def _compute_metrics_per_target(y_true_all, y_pred_all, y_mask_all,
             metrics_per_target[col_name] = _empty_metrics()
             continue
 
-        # ── Rücktransformation aus Log-Raum (nur beobachtete Werte) ──
+        # ── Inverse transformation from log space (only observed values) ──
         trans_info = target_transformations.get(col_name, {"type": "none", "params": None})
         epsilon = trans_info["params"].get("epsilon", 1e-6) if trans_info["params"] else 1e-6
         yt, yp = inverse_log_transform(
@@ -59,7 +59,7 @@ def _compute_metrics_per_target(y_true_all, y_pred_all, y_mask_all,
             epsilon=epsilon
         )
 
-        # Durch die Rücktransformation können ungültige Werte entstehen (z.B. Box-Cox)
+        # The inverse transformation can produce invalid values (e.g., Box-Cox)
         finite = np.isfinite(yt) & np.isfinite(yp)
         yt = yt[finite]
         yp = yp[finite]
@@ -69,7 +69,7 @@ def _compute_metrics_per_target(y_true_all, y_pred_all, y_mask_all,
             metrics_per_target[col_name] = _empty_metrics()
             continue
 
-        # Mean Error Maße
+        # Mean error measurements
         mse = mean_squared_error(yt, yp)
         rmse = np.sqrt(mse)
         mae = mean_absolute_error(yt, yp)
@@ -127,12 +127,12 @@ def _compute_metrics_per_target(y_true_all, y_pred_all, y_mask_all,
 
 def _aggregate_metrics(metrics_per_target, target_features, suffix=""):
     """
-    Mittelt die Metriken über die angegebenen Target-Features.
+    Averages the metrics over the specified target features.
 
-    :param metrics_per_target: Dictionary aus _compute_metrics_per_target
-    :param target_features: Targets, über die gemittelt wird
-    :param suffix: optionales Suffix für die Metriknamen (z.B. "_nit")
-    :return: Dictionary mit gemittelten Metriken
+    :param metrics_per_target: Dictionary from _compute_metrics_per_target
+    :param target_features: Targets over which to average
+    :param suffix: Optional suffix for the metric names (e.g., "_nit")
+    :return: Dictionary with averaged metrics
     """
     aggregated = {}
     for metric_name in METRIC_NAMES:
@@ -145,25 +145,26 @@ def calculate_all_metrics(model, test_loader, target_features, target_transforma
                           include_nitrate_only: bool = False,
                           include_per_target: bool = False):
     """
-    Bewertet ein trainiertes Modell auf einem Test-Datensatz und berechnet verschiedene Regressionsmetriken.
+    Evaluates a trained model on a test dataset and computes various regression metrics.
 
-    Nicht beobachtete Zielwerte (Target-Maske == 0 bzw. fehlend/imputiert) werden
-    bei der Metrikberechnung ausgeschlossen.
+    Unobserved target values (target mask == 0 or missing/imputed) are
+    excluded from metric computation.
 
-    :param model:       Das trainierte PyTorch-Modell
-    :param test_loader: DataLoader für den Testdatensatz
-    :param target_features: Liste der Spaltennamen der Target-Features (z.B. ["SHA_nit", "SHA_temp"])
-    :param target_transformations: Dict mit den Methoden pro Target-Features
-    :param include_nitrate_only: Wenn True, werden zusätzlich die Metriken ausschließlich
-        über die Nitrat-Targets (Endung "_nit") berechnet und mit Suffix "_nit"
-        zurückgegeben (z.B. "MSE_nit"). So bleiben Läufe mit weiteren Output-Variablen
-        (z.B. Discharge) mit reinen Nitrat-Läufen vergleichbar.
-    :param include_per_target: Wenn True, werden zusätzlich die Metriken für jedes
-        einzelne Target-Feature zurückgegeben, benannt als "<Metrik>_<Target>"
-        (z.B. "MSE_NF_nit" oder "KGE_SHA_disch").
-    :return: Dictionary mit gemittelten MSE, RMSE, MAE, R2, NSE, MBE, KGE über alle
-        Target-Features; optional zusätzlich dieselben Metriken mit Suffix "_nit"
-        über die Nitrat-Targets und/oder pro einzelnem Target-Feature.
+    :param model:       The trained PyTorch model
+    :param test_loader: DataLoader for the test dataset
+    :param target_features: List of column names of the target features (e.g., ["SHA_nit", "SHA_temp"])
+    :param target_transformations: Dict with the methods per target feature
+    :param include_nitrate_only: If True, in addition to the metrics, the metrics
+        exclusively over the nitrate targets (suffix "_nit") are computed and
+        returned with suffix "_nit" (e.g., "MSE_nit"). This keeps runs with
+        additional output variables (e.g., discharge) comparable to
+        nitrate-only runs.
+    :param include_per_target: If True, in addition, the metrics for each
+        individual target feature are returned, named "<metric>_<target>"
+        (e.g., "MSE_NF_nit" or "KGE_SHA_disch").
+    :return: Dictionary with averaged MSE, RMSE, MAE, R2, NSE, MBE, KGE over all
+        target features; optionally also the same metrics with suffix "_nit"
+        over the nitrate targets and/or per individual target feature.
     """
     model.eval()
     y_true_list = []
@@ -185,10 +186,10 @@ def calculate_all_metrics(model, test_loader, target_features, target_transforma
         y_true_all, y_pred_all, y_mask_all, target_features, target_transformations
     )
 
-    # Metriken über alle Target-Features
+    # Metrics over all target features
     result = _aggregate_metrics(metrics_per_target, target_features)
 
-    # Optional: Metriken nur über die Nitrat-Targets
+    # Optional: metrics only over the nitrate targets
     if include_nitrate_only:
         nitrate_features = [
             feature for feature in target_features
@@ -208,7 +209,7 @@ def calculate_all_metrics(model, test_loader, target_features, target_transforma
                 for metric_name in METRIC_NAMES
             })
 
-    # Optional: Metriken für jedes einzelne Target-Feature
+    # Optional: metrics for each individual target feature
     if include_per_target:
         for feature in target_features:
             for metric_name in METRIC_NAMES:
@@ -218,12 +219,12 @@ def calculate_all_metrics(model, test_loader, target_features, target_transforma
 
 def save_split_boundaries(train_df, val_df, test_df, save_path):
     """
-    Speichert Start- und Endzeitpunkte von Trainings-, Validierungs- und Testset.
+    Saves start and end timestamps of the training, validation, and test sets.
 
-    :param train_df: DataFrame mit Trainingsdaten
-    :param val_df: Validierungsdaten
-    :param test_df: Testdaten
-    :param save_path: Pfad zur Zieldatei (CSV)
+    :param train_df: DataFrame with training data
+    :param val_df: Validation data
+    :param test_df: Test data
+    :param save_path: Path to the target file (CSV)
     """
     split_info = {
         "set": ["train", "val", "test"],
@@ -238,21 +239,21 @@ def evaluate_and_store_full_predictions(model, full_ds, output_dir,
                                         x_full, scaler_y, target_features,
                                         target_transformations, batch_size: int = 256):
     """
-    Führt Vorhersage auf dem gesamten Datensatz durch und speichert:
+    Performs prediction on the full dataset and saves:
     - predictions_full.npy
     - y_true_full.npy
     - dates_full.npy
     - X_full.npy
     - scaler_y.pkl
 
-    :param model:      Das trainierte PyTorch-Modell
-    :param full_ds:    TimeSeriesDatasetWithTimestamps (iterierbares Dataset)
-    :param output_dir: Zielverzeichnis für die gespeicherten Dateien
-    :param x_full:     Vollständige skalierte Eingabematrix
-    :param scaler_y:   Scaler für die Zielvariable
-    :param target_features: Liste der Zielvariablen
-    :param target_transformations: Infors über Normalisierung der Target-Features
-    :param batch_size: Batch-Größe für den DataLoader (beeinflusst nur Speicher nicht Ergebnis)
+    :param model:      The trained PyTorch model
+    :param full_ds:    TimeSeriesDatasetWithTimestamps (iterable dataset)
+    :param output_dir: Target directory for the saved files
+    :param x_full:     Full scaled input matrix
+    :param scaler_y:   Scaler for the target variable
+    :param target_features: List of target variables
+    :param target_transformations: Information about normalization of the target features
+    :param batch_size: Batch size for the DataLoader (affects only memory, not the result)
     """
     model.eval()
     y_true_list = []
@@ -276,11 +277,11 @@ def evaluate_and_store_full_predictions(model, full_ds, output_dir,
 
     os.makedirs(output_dir, exist_ok=True)
 
-    # ── Log-Raum-Werte speichern (für Debugging) ──
+    # ── Save log-space values (for debugging) ──
     np.save(os.path.join(output_dir, "predictions_log.npy"), y_pred_all)
     np.save(os.path.join(output_dir, "y_true_log.npy"), y_true_all)
 
-    # ── Multi-Target Rücktransformation ──
+    # ── Multi-target inverse transformation ──
     y_true_orig = np.zeros_like(y_true_all)
     y_pred_orig = np.zeros_like(y_pred_all)
 
@@ -300,7 +301,7 @@ def evaluate_and_store_full_predictions(model, full_ds, output_dir,
         y_true_orig[:, i] = yt_orig
         y_pred_orig[:, i] = yp_orig
 
-    # ── Originalskala-Werte speichern (für Plots und Metriken) ──
+    # ── Save original-scale values (for plots and metrics) ──
     np.save(os.path.join(output_dir, "predictions_full.npy"), y_pred_orig)
     np.save(os.path.join(output_dir, "y_true_full.npy"), y_true_orig)
     np.save(os.path.join(output_dir, "dates_full.npy"), timestamps_collected)

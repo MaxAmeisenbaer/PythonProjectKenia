@@ -24,10 +24,11 @@ SCENARIO_GETTERS = {
 
 def _parse_args():
     """
-    Funktion, die Argumente aus Aufrufen in der Konsole einliest
-    Arugumente:
-    --scenario      Szenario, welches für Benchmark genutzt werden soll
-    n_trials        Menge an Bayes-Kombinationen, die getestet werden
+    Function that reads arguments from console calls.
+    Arguments:
+    --scenario      Scenario to be used for the benchmark
+    --trials        Number of Bayesian combinations to be tested
+    --euclidean     Loss-Function with Euclidean Distance
     """
     parser = argparse.ArgumentParser(
         description="Optuna hyperparameter tuning for LSTM scenarios"
@@ -57,21 +58,21 @@ def _parse_args():
 
 def _objective(trial, data, n_features, n_targets, euclidean: bool = False):
     """
-    Optuna-Zielfunktion: Trainiert ein LSTM mit den vorgeschlagenen
-    Hyperparametern und gibt den besten Validierungsverlust zurück.
+    Optuna objective function: Trains an LSTM with the proposed
+    hyperparameters and returns the best validation loss.
 
-    :param trial:      Optuna Trial-Objekt
-    :param data:       Vorbereitete Arrays aus prepare_data_arrays()
-    :param n_features: Anzahl der Eingabe-Features
-    :param n_targets:  Anzahl der Zielvariablen
-    :param euclidean:  Wenn True, wird die per-Target-Euclidean-MSE-Variante
-                       als Loss verwendet.
-    :return:           Bester Validierungsverlust (val_loss) als float
+    :param trial:      Optuna trial object
+    :param data:       Prepared arrays from prepare_data_arrays()
+    :param n_features: Number of input features
+    :param n_targets:  Number of target variables
+    :param euclidean:  If True, the per-target Euclidean MSE variant is used
+                       as the loss.
+    :return:           Best validation loss (val_loss) as float
     """
-    # Jeder Trial bekommt einen reproduzierbaren, aber eigenen Seed.
+    # Each trial gets a reproducible but separate seed.
     set_seed(SEED + trial.number)
 
-    # --- Hyperparameter definieren ---
+    # --- Define hyperparameters ---
     nodes_lstm    = trial.suggest_categorical("nodes_lstm",    [10, 20, 50])
     dropout       = trial.suggest_categorical("dropout",       [0.1, 0.2, 0.3, 0.5])
     learning_rate = trial.suggest_categorical("learning_rate", [1e-2, 1e-3, 1e-4])
@@ -81,8 +82,8 @@ def _objective(trial, data, n_features, n_targets, euclidean: bool = False):
     epochs        = trial.suggest_categorical("epochs",        [20, 30, 50, 70])
     nodes_dense   = trial.suggest_categorical("nodes_dense",   [0, 32, 64])
 
-    # --- Daten vorbereiten ---
-    # Nur die von seq_length/batch_size abhängigen DataLoader neu bauen.
+    # --- Prepare data ---
+    # Only rebuild the DataLoaders that depend on seq_length/batch_size.
     train_ds, val_ds, test_ds = make_dataloaders(
         data["x_train"], data["x_val"], data["x_test"],
         data["y_train"], data["y_val"], data["y_test"],
@@ -91,7 +92,7 @@ def _objective(trial, data, n_features, n_targets, euclidean: bool = False):
         batch_size=batch_size
     )
 
-    # --- Modell erstellen ---
+    # --- Create model ---
     model, optimizer, loss_fn = create_model(
         n_features=n_features,
         n_targets=n_targets,
@@ -114,7 +115,7 @@ def _objective(trial, data, n_features, n_targets, euclidean: bool = False):
         patience=5
     )
 
-    # Besten Validierungsverlust zurückgeben
+    # Return the best validation loss
     return min(history["val_loss"])
 
 
@@ -122,21 +123,21 @@ def _save_best_artifacts(study, best_model, history, data, config_name,
                         target_features, stations, measurements,
                         output_root=None, euclidean: bool = False):
     """
-    Speichert das beste Modell sowie alle für eine spätere Wiederverwendung
-    benötigten Preprocessing- und Konfigurationsartefakte.
+    Saves the best model as well as all preprocessing and configuration
+    artifacts needed for later reuse.
 
-    :param study:            Abgeschlossene Optuna-Studie
-    :param best_model:       Neu trainiertes Modell mit den besten Parametern
-    :param history:          Trainings-History des besten Modells
-    :param data:             Dictionary aus prepare_data_arrays()
-    :param config_name:      Szenario-/Konfigurationsname
-    :param target_features:  Liste der Zielvariablen
-    :param stations:         Verwendete Stationen
-    :param measurements:     Verwendete Messgrößen pro Station
-    :param output_root:      Wurzelverzeichnis für HP-Tuning-Artefakte (default: OUTPUT_ROOT)
-    :param euclidean:        Wenn True, werden die Artefakte in einem eigenen
-                             Unterordner abgelegt, damit MSE- und Euclidean-Läufe
-                             sich nicht gegenseitig überschreiben.
+    :param study:            Completed Optuna study
+    :param best_model:       Newly trained model with the best parameters
+    :param history:          Training history of the best model
+    :param data:             Dictionary from prepare_data_arrays()
+    :param config_name:      Scenario/configuration name
+    :param target_features:  List of target variables
+    :param stations:         Stations used
+    :param measurements:     Measurements used per station
+    :param output_root:      Root directory for HP-tuning artifacts (default: OUTPUT_ROOT)
+    :param euclidean:        If True, the artifacts are stored in a separate
+                             subdirectory so that MSE and Euclidean runs do not
+                             overwrite each other.
     :return:                 (best_config, output_dir)
     """
     if output_root is None:
@@ -153,7 +154,7 @@ def _save_best_artifacts(study, best_model, history, data, config_name,
 
     torch.save(best_model.state_dict(), model_path)
 
-    # Feature-Scaler und Target-Transformationen für Inferenz/Retraining
+    # Feature scaler and target transformations for inference/retraining
     with open(scaler_path, "wb") as f:
         pickle.dump(data["scaler"], f)
 
@@ -203,23 +204,23 @@ def _save_best_artifacts(study, best_model, history, data, config_name,
 def run_hp_training(scenario: str = "benchmark", n_trials: int = 20,
                     euclidean: bool = False):
     """
-    Führt die Optuna-Studie aus und speichert das beste Modell samt
-    vollständiger Konfiguration und Preprocessing-Objekte.
+    Runs the Optuna study and saves the best model together with the full
+    configuration and preprocessing objects.
 
-    :param scenario:        Szenario, welches für Benchmark genutzt werden soll
-    :param n_trials:        Menge an Bayes-Kombinationen, die getestet werden
-    :param euclidean:       Wenn True, wird die per-Target-Euclidean-MSE-Variante
-                            als Loss verwendet. MSE- und Euclidean-Läufe landen in
-                            getrennten Optuna-Studien und Ausgabeordnern.
+    :param scenario:        Scenario to be used for the benchmark
+    :param n_trials:        Number of Bayesian combinations to be tested
+    :param euclidean:       If True, the per-target Euclidean MSE variant is used
+                            as the loss. MSE and Euclidean runs are stored in
+                            separate Optuna studies and output directories.
     """
-    # Szenario laden
+    # Load scenario
     stations, measurements, target_features, config_name = SCENARIO_GETTERS[scenario]()
 
     n_targets = len(target_features)
 
     set_seed(SEED)
 
-    # Teure Vorverarbeitung einmalig ausführen; die Trials bauen nur die DataLoader.
+    # Run expensive preprocessing once; the trials only build the DataLoaders.
     data = prepare_data_arrays(
         stations=stations,
         measurements=measurements,
@@ -227,15 +228,15 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20,
     )
     n_features = data["n_features"]
 
-    # Konfigurationsspezifischer Studienname, damit Szenarien und Loss-Varianten
-    # nicht kollidieren. MSE und Euclidean haben unterschiedliche Loss-Skalen
-    # und dürfen deshalb nicht in derselben Studie gemischt werden.
+    # Configuration-specific study name so that scenarios and loss variants
+    # do not collide. MSE and Euclidean have different loss scales
+    # and therefore must not be mixed in the same study.
     study_name = f"lstm_tuning_{config_name}" + ("_euclidean" if euclidean else "")
     study = optuna.create_study(
         study_name=study_name,
         storage=STORAGE,
         direction="minimize",
-        sampler=optuna.samplers.TPESampler(seed=SEED),  # Bayessche Optimierung
+        sampler=optuna.samplers.TPESampler(seed=SEED),  # Bayesian optimization
         load_if_exists=True
     )
 
@@ -250,13 +251,13 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20,
         n_trials=n_trials
     )
 
-    # --- Beste Parameter ausgeben ---
+    # --- Print best parameters ---
     print(f"Bester Validierungsverlust: {study.best_value:.4f}")
     print("Beste Hyperparameter:")
     for k, v in study.best_params.items():
         print(f"  {k}: {v}")
 
-    # --- Bestes Modell neu trainieren ---
+    # --- Retrain the best model ---
     best = study.best_params
     set_seed(SEED)
 
@@ -289,7 +290,7 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20,
         patience=5
     )
 
-    # --- Bestes Modell + vollständige Artefakte speichern ---
+    # --- Save best model + full artifacts ---
     best_config, output_dir = _save_best_artifacts(
         study=study,
         best_model=best_model,

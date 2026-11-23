@@ -17,12 +17,12 @@ from evaluate_model import (
 
 def _save_model_metadata(model_name, params, output_path="model_log.xlsx"):
     """
-    Speichert Metadaten eines trainierten Modells in einer Excel-Datei.
-    Falls die Datei existiert, wird ein neuer Eintrag hinzugefügt.
+    Saves metadata of a trained model to an Excel file.
+    If the file exists, a new entry is appended.
 
-    :param model_name: Name des gespeicherten Modells
-    :param params: Dictionary mit Modellparametern und Metriken
-    :param output_path: Pfad zur Excel-Logdatei (default="model_log.xlsx")
+    :param model_name: Name of the saved model
+    :param params: Dictionary with model parameters and metrics
+    :param output_path: Path to the Excel log file (default="model_log.xlsx")
     """
     metadata = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -41,13 +41,13 @@ def _save_model_metadata(model_name, params, output_path="model_log.xlsx"):
 
 def _generate_model_name(config_name, target_features, output_path="model_log.xlsx"):
     """
-    Generiert einen eindeutigen Modellnamen basierend auf Konfiguration und Zielvariable.
-    Die Nummerierung wird automatisch fortgeführt, falls bereits Modelle existieren.
+    Generates a unique model name based on the configuration and target variable.
+    Numbering continues automatically if models already exist.
 
-    :param config_name: Name der Konfiguration (z. B. "benchmark")
-    :param target_features: Liste der Zielvariablen
-    :param output_path: Pfad zur Excel-Logdatei für bestehende Modelle
-    :return: String mit neuem Modellnamen
+    :param config_name: Name of the configuration (e.g., "benchmark")
+    :param target_features: List of target variables
+    :param output_path: Path to the Excel log file for existing models
+    :return: String with the new model name
     """
     stations = []
     features = []
@@ -87,12 +87,12 @@ def _generate_model_name(config_name, target_features, output_path="model_log.xl
 
 def _prepare_data(config, target_features, stations, measurements):
     """
-    Bereitet die Datensätze für Training, Validierung und Test vor.
+    Prepares the datasets for training, validation, and test.
 
-    :param config: Dictionary mit Modellkonfiguration (Batchgröße, Sequenzlänge etc.)
-    :param target_features: Liste der Zielvariablen (z. B. "SHA_Nit")
-    :param stations: Liste der verwendeten Stationen
-    :param measurements: Liste der Messgrößen
+    :param config: Dictionary with model configuration (batch size, sequence length, etc.)
+    :param target_features: List of target variables (e.g., "SHA_Nit")
+    :param stations: List of stations used
+    :param measurements: List of measurements
     :return: train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
     """
     train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, target_transformations, scaler_y = create_final_ds(
@@ -107,14 +107,14 @@ def _prepare_data(config, target_features, stations, measurements):
 
 def _build_and_train_model(train_loader, val_loader, config, n_features: int, n_targets: int):
     """
-    Erstellt ein LSTM-Modell und trainiert es.
+    Creates an LSTM model and trains it.
 
-    :param train_loader: Trainings-DataLoader
-    :param val_loader:   Validierungs-DataLoader
-    :param config:       Dictionary mit Modellparametern
-    :param n_features:   Anzahl der Eingabe-Features
-    :param n_targets:    Target-Variablen des Modells
-    :return:             Trainiertes Modell, History-Dictionary
+    :param train_loader: Training DataLoader
+    :param val_loader:   Validation DataLoader
+    :param config:       Dictionary with model parameters
+    :param n_features:   Number of input features
+    :param n_targets:    Target variables of the model
+    :return:             Trained model, history dictionary
     """
     model, optimizer, loss_fn = create_model(
         n_features=n_features,
@@ -141,29 +141,29 @@ def _build_and_train_model(train_loader, val_loader, config, n_features: int, n_
 def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool = False,
         euclidean: bool = False):
     """
-    Führt den gesamten Modelltrainings-Workflow für ein bestimmtes Szenario aus:
-    - Laden der Szenario-Konfiguration
-    - Datenvorbereitung
-    - Modelltraining
-    - Berechnung der Metriken
-    - Speichern von Modell, Log-Eintrag und Split-Grenzen
-    - Evaluation auf vollem Datensatz
-    :param scenario: Name des Szenarios ("benchmark", "low_input", "test_code")
-    :param nitrate_only_metrics: Opt-in. Wenn True, werden zusätzlich zu den Metriken
-        über alle Targets die Metriken ausschließlich über die Nitrat-Targets
-        (Endung "_nit") berechnet und mit Suffix "_nit" geloggt (z.B. "MSE_nit").
-        Dadurch bleiben Läufe mit weiteren Output-Variablen (z.B. Discharge) mit
-        reinen Nitrat-Läufen vergleichbar.
-    :param per_target_metrics: Opt-in. Wenn True, werden zusätzlich die Metriken für
-        jedes einzelne Target-Feature geloggt, benannt als "<Metrik>_<Target>"
-        (z.B. "MSE_NF_nit", "KGE_SHA_disch").
-    :param euclidean: Opt-in. Wenn True, wird der MSE pro Target berechnet, daraus
-        die Wurzel gezogen und der Mittelwert über die Targets quadriert:
-        (mean_t sqrt(MSE_t))^2. Dadurch tragen alle Targets unabhängig von ihrer
-        Beobachtungsanzahl gleich viel zum Loss bei.
-    :return: Dictionary mit Modellname und berechneten Metriken
+    Runs the full model-training workflow for a specific scenario:
+    - Load the scenario configuration
+    - Prepare the data
+    - Train the model
+    - Compute the metrics
+    - Save the model, log entry, and split boundaries
+    - Evaluate on the full dataset
+    :param scenario: Name of the scenario ("benchmark", "low_input", "test_code")
+    :param nitrate_only_metrics: Opt-in. If True, in addition to the metrics
+        over all targets, the metrics are computed exclusively over the nitrate
+        targets (suffix "_nit") and logged with suffix "_nit" (e.g., "MSE_nit").
+        This keeps runs with additional output variables (e.g., discharge)
+        comparable to nitrate-only runs.
+    :param per_target_metrics: Opt-in. If True, the metrics for each individual
+        target feature are also logged, named "<metric>_<target>"
+        (e.g., "MSE_NF_nit", "KGE_SHA_disch").
+    :param euclidean: Opt-in. If True, the MSE is computed per target, then its
+        square root is taken and the mean over the targets is squared:
+        (mean_t sqrt(MSE_t))^2. As a result, all targets contribute equally to
+        the loss regardless of their number of observations.
+    :return: Dictionary with model name and computed metrics
     """
-    # Reproduzierbare Initialisierung und Trainingsreihenfolge
+    # Reproducible initialization and training order
     set_seed(42)
 
     if scenario == "benchmark":
@@ -191,9 +191,9 @@ def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool =
     else:
         raise ValueError(f"Unbekanntes Szenario: {scenario}")
 
-#Legacy-Code: not_nit_config, not_lyser_config, low_input_config
+#Legacy code: not_nit_config, not_lyser_config, low_input_config
 
-    # Nitrat-only-Metriken nur anfordern, wenn auch Nitrat-Targets vorhanden sind
+    # Request nitrate-only metrics only if nitrate targets are present
     nitrate_targets = [
         target for target in target_features
         if target.endswith(NITRATE_TARGET_SUFFIX)
@@ -216,19 +216,19 @@ def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool =
         "euclidean": euclidean
     }
 
-    # Daten vorbereiten
+    # Prepare data
     (train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, target_transformations, scaler_y) = _prepare_data(
         model_config, target_features, stations, measurements)
 
-    # n_features aus x_full ableiten
+    # Derive n_features from x_full
     n_features = x_full.shape[1]
     n_targets = len(target_features)
 
-    # Modell bauen und trainieren
+    # Build and train model
     model, history = _build_and_train_model(
         train_ds, val_ds, model_config, n_features, n_targets)
 
-    # Metriken berechnen (optional Nitrat-only und/oder pro einzelnem Target)
+    # Compute metrics (optionally nitrate-only and/or per individual target)
     metrics_result = calculate_all_metrics(
         model,
         test_ds,
@@ -239,15 +239,15 @@ def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool =
     )
     model_name = _generate_model_name(config_name, target_features)
 
-    # Modell speichern
+    # Save model
     output_dir = os.path.join("models", config_name)
     os.makedirs(output_dir, exist_ok=True)
     torch.save(model.state_dict(), os.path.join(output_dir, f"{model_name}.pt"))
 
-    # Early-Stopping-Epochen aus History auslesen
+    # Read early-stopping epochs from history
     early_stopped = len(history["train_loss"])
 
-    # Modell-Metadaten speichern
+    # Save model metadata
     _save_model_metadata(
         model_name=model_name,
         params={
@@ -261,11 +261,11 @@ def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool =
         }
     )
 
-    # Speichern der Split-Zeiträume
+    # Save the split time windows
     split_save = os.path.join(output_dir, f"{model_name}_split_boundaries.csv")
     save_split_boundaries(train_df, val_df, test_df, save_path=split_save)
 
-    # Evaluation und Vorhersage auf vollem Datensatz
+    # Evaluation and prediction on the full dataset
     if full_ds is not None and timestamps_full is not None and x_full is not None and scaler_y is not None:
         evaluate_and_store_full_predictions(
             model=model,

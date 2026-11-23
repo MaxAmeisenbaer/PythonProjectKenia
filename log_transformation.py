@@ -4,14 +4,14 @@ from scipy.stats import boxcox
 
 def analyze_skewness(df: pd.DataFrame) -> dict:
     """
-    Lädt die Schiefe (skewness) und die Prozent‑Null‑Rate (pct_zero) für
-    jede Spalte im DataFrame. Gibt ein verschachteltes Python‑Dict zurück.
+    Reads the skewness and the percentage-zero rate (pct_zero) for
+    each column in the DataFrame. Returns a nested Python dict.
 
-    :param df  – DataFrame mit allen Zeitreihen
+    :param df  – DataFrame with all time series
     :return   – { 'col_name': { 'skew': <float>, 'pct_zero': <float> } }
     """
     skew  = df.skew()                    # float Series
-    pct   = (df == 0).mean() * 100       # Fractions → Prozent
+    pct   = (df == 0).mean() * 100       # Fractions → percent
 
     skew_dict = {
         col: {"skew": float(skew[col]), "pct_zero": float(pct[col])}
@@ -20,9 +20,9 @@ def analyze_skewness(df: pd.DataFrame) -> dict:
     return skew_dict
 
 def _ensure_positive(x: np.ndarray):
-    """Hängt einen Shift an, damit alle endlichen Werte > 0 werden.
+    """Adds a shift so that all finite values become > 0.
 
-    NaN-Werte werden ignoriert (np.nanmin) und bleiben im Ergebnis NaN.
+    NaN values are ignored (np.nanmin) and remain NaN in the result.
     """
     x = np.asarray(x, dtype=float)
     finite = np.isfinite(x)
@@ -38,13 +38,13 @@ def _ensure_positive(x: np.ndarray):
 
 def log_transform_log1p(df, col):
     """
-    Logarithmiert Niederschlagsspalten mit log1p (= ln(x + 1)).
-    Null-Werte (kein Regen) bleiben exakt 0.
-    Rücktransformation: np.expm1(x)
+    Applies the logarithm to precipitation columns using log1p (= ln(x + 1)).
+    Zero values (no rain) remain exactly 0.
+    Inverse transformation: np.expm1(x)
 
     :param df: DataFrame
-    :param col: Name der zu transformierenden Spalte
-    :return: DataFrame mit transformierten Spalten
+    :param col: Name of the column to transform
+    :return: DataFrame with transformed columns
     """
     x = df[col]
     if (x.dropna() <= -1).any():
@@ -57,14 +57,14 @@ def log_transform_log1p(df, col):
 
 def log_transform_eps(df, col, epsilon=1e-6):
     """
-    Logarithmiert angegebene Spalten mit ln(x + epsilon).
-    Geeignet für rechtsschief verteilte Werte wie Abfluss oder Nitrat.
-    Rücktransformation: np.exp(x) - epsilon
+    Applies the logarithm to the specified columns using ln(x + epsilon).
+    Suitable for right-skewed values such as discharge or nitrate.
+    Inverse transformation: np.exp(x) - epsilon
 
     :param df: DataFrame
-    :param col: Name der zu transformierenden Spalte
-    :param epsilon: Kleiner Offset um log(0) zu vermeiden
-    :return: DataFrame mit transformierten Spalten
+    :param col: Name of the column to transform
+    :param epsilon: Small offset to avoid log(0)
+    :return: DataFrame with transformed columns
     """
     x = df[col]
     if (x.dropna() + epsilon <= 0).any():
@@ -78,59 +78,59 @@ def log_transform_eps(df, col, epsilon=1e-6):
 
 def boxcox_transform(df, col):
     """
-    Führt die Box‑Cox‑Transformation für eine Spalte durch, berechnet
+    Performs the Box-Cox transformation for a column, computes
 
-    *   `lambda` – der *MLE*‑Parameter
-    *   `shift`   – ggf. notwendiger Positives‑Shift
+    `lambda`  – the *MLE* parameter
+    `shift`   – a positive shift if necessary
 
     Returns:
         tuple(DataFrame, {'lambda': float, 'shift': float})
     """
     x_raw = df[col].values.astype(float)
 
-    # Nur endliche Werte transformieren (NaN bleibt NaN)
+    # Transform only finite values (NaN remains NaN)
     finite = np.isfinite(x_raw)
     if not finite.any():
         raise ValueError(f"boxcox: Spalte '{col}' enthält keine endlichen Werte.")
 
-    # Shift für negative/0‑Werte
+    # Shift for negative/0 values
     x, shift = _ensure_positive(x_raw[finite])
 
     # Transformation
     trans, lam = boxcox(x)
 
-    # Resultat
+    # Result
     df = df.copy()
     values = np.full(len(x_raw), np.nan, dtype=float)
     values[finite] = trans
     df[col] = values
 
-    # param-dict festlegen
+    # Set param dict
     params = {"lambda": lam, "shift": shift}
 
     return df, params
 
 def inverse_log_transform(y_true, y_pred, method, epsilon=1e-6):
     """
-    Rücktransformation der Log-Werte.
+    Inverse transformation of the log values.
 
-    :param y_true: Transformierte wahre Werte (numpy array)
-    :param y_pred: Transformierte vorhergesagte Werte (numpy array)
-    :param method: dict mit Infos zu log-Typ und Parametern
-    :param epsilon: Kleiner Offset um log(0) zu vermeiden
-    :return: Rücktransformierte Werte
+    :param y_true: Transformed true values (numpy array)
+    :param y_pred: Transformed predicted values (numpy array)
+    :param method: dict with information on log type and parameters
+    :param epsilon: Small offset to avoid log(0)
+    :return: Inverse-transformed values
     """
     if method["type"] == "log1p":
         y_true = np.expm1(y_true)
         y_pred = np.expm1(y_pred)
         y_pred = np.maximum(y_pred, 0)
-        return y_true, y_pred    # Inverse von log1p
+        return y_true, y_pred    # Inverse of log1p
     elif method["type"] == "log_eps":
         eps = method.get("params", {}).get("epsilon", epsilon)
         y_true = np.exp(y_true) - eps
         y_pred = np.exp(y_pred) - eps
         y_pred = np.maximum(y_pred, 0)
-        return y_true, y_pred  # Inverse von log(x + epsilon)
+        return y_true, y_pred  # Inverse of log(x + epsilon)
     elif method["type"] == "boxcox":
         lam = method["params"]["lambda"]
         shift = method["params"].get("shift", 0.0)

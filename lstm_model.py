@@ -7,9 +7,9 @@ import numpy as np
 
 def set_seed(seed: int = 42) -> None:
     """
-    Setzt Python-, NumPy- und PyTorch-Zufallsgeneratoren für reproduzierbare Läufe.
+    Sets the Python, NumPy, and PyTorch random number generators for reproducible runs.
 
-    :param seed: Seed für alle Zufallsgeneratoren
+    :param seed: Seed for all random number generators
     """
     random.seed(seed)
     np.random.seed(seed)
@@ -18,22 +18,22 @@ def set_seed(seed: int = 42) -> None:
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-    # Deterministische cuDNN-Kernel (relevant bei Training auf GPU)
+    # Deterministic cuDNN kernels (relevant when training on GPU)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
 
 def compute_nse(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
     """
-    Berechnet die Nash-Sutcliffe-Effizienz (NSE).
+    Computes the Nash-Sutcliffe efficiency (NSE).
 
     NSE = 1 - (SSE / Var(y_true))
-    - Werte nahe 1: hohe Modellgüte
-    - Werte <= 0: Mittelwert wäre besser als Modell
+    - Values close to 1: high model performance
+    - Values <= 0: the mean would be better than the model
 
-    :param y_true: Beobachtete Werte
-    :param y_pred: Vorhergesagte Werte
-    :return: Durchschnittlischer NSE-Wert über alle Target-Features als float
+    :param y_true: Observed values
+    :param y_pred: Predicted values
+    :return: Average NSE value over all target features as float
     """
     n_targets = y_true.shape[1]
     nse_values = []
@@ -50,15 +50,15 @@ def compute_nse(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
 
 def compute_mbe(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
     """
-    Berechnet den Mean Bias Error (MBE).
+    Computes the Mean Bias Error (MBE).
 
-    - MBE > 0: Überschätzung
-    - MBE < 0: Unterschätzung
-    - MBE = 0: Perfekte Vorhersage
+    - MBE > 0: overestimation
+    - MBE < 0: underestimation
+    - MBE = 0: perfect prediction
 
-    :param y_true: Beobachtete Werte
-    :param y_pred: Vorhergesagte Werte
-    :return: MBE-Wert als float
+    :param y_true: Observed values
+    :param y_pred: Predicted values
+    :return: MBE value as float
     """
     return (y_pred - y_true).mean().item()
 
@@ -66,13 +66,13 @@ def compute_mbe(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
 def _kling_gupta_efficiency(sim: np.ndarray, obs: np.ndarray,
                            mask: np.ndarray | None = None) -> float:
     """
-    Berechnet die Kling-Gupta-Effizienz (KGE).
+    Computes the Kling-Gupta efficiency (KGE).
 
-    :param sim:  Modellvorhersagen [n_samples, n_targets]
-    :param obs:  Beobachtungen [n_samples, n_targets]
-    :param mask: Optionale Beobachtungsmaske [n_samples, n_targets]
-                 (1 = beobachtet, 0 = fehlend/imputiert)
-    :return: Durchschnittlicher KGE-Wert (maximal 1, je näher an 1 desto besser)
+    :param sim:  Model predictions [n_samples, n_targets]
+    :param obs:  Observations [n_samples, n_targets]
+    :param mask: Optional observation mask [n_samples, n_targets]
+                 (1 = observed, 0 = missing/imputed)
+    :return: Average KGE value (maximum 1, the closer to 1 the better)
     """
     n_targets = sim.shape[1]
     kge_values = []
@@ -119,14 +119,14 @@ def _kling_gupta_efficiency(sim: np.ndarray, obs: np.ndarray,
 
 class LSTMModel(nn.Module):
     """
-    LSTM-Modell mit optionaler Dense-Zwischenschicht.
+    LSTM model with an optional dense intermediate layer.
 
-    :param n_features:   Anzahl der Eingabe-Features
-    :param n_targets:    Anzahl der Zielvariablen
-    :param nodes_lstm:   Anzahl der Neuronen in der LSTM-Schicht
-    :param nodes_dense:  Anzahl der Neuronen in der Dense-Schicht (0 = keine)
-    :param dropout:      Dropout-Rate
-    :param num_layers:  Anzahl gestapelter LSTM-Layer
+    :param n_features:   Number of input features
+    :param n_targets:    Number of target variables
+    :param nodes_lstm:   Number of neurons in the LSTM layer
+    :param nodes_dense:  Number of neurons in the dense layer (0 = none)
+    :param dropout:      Dropout rate
+    :param num_layers:  Number of stacked LSTM layers
     """
     def __init__(self, n_features: int, n_targets: int, nodes_lstm: int,
                  nodes_dense: int, dropout: float, num_layers: int = 2):
@@ -136,7 +136,7 @@ class LSTMModel(nn.Module):
             input_size=n_features,
             hidden_size=nodes_lstm,
             num_layers=num_layers,
-            batch_first=True,          # ← Input-Shape: [batch, seq_len, features]
+            batch_first=True,          # ← Input shape: [batch, seq_len, features]
             dropout=dropout if num_layers > 1 else 0.0
         )
         self.dropout = nn.Dropout(dropout)
@@ -153,13 +153,13 @@ class LSTMModel(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Forward-Pass durch das Modell.
+        Forward pass through the model.
 
-        :param x: Eingabe-Tensor [batch_size, seq_length, n_features]
-        :return:  Ausgabe-Tensor [batch_size, 1]
+        :param x: Input tensor [batch_size, seq_length, n_features]
+        :return:  Output tensor [batch_size, 1]
         """
         out, _ = self.lstm(x)  # [batch, seq_len, nodes_lstm]
-        out = out[:, -1, :]  # [batch, nodes_lstm] ← letzter Zeitschritt
+        out = out[:, -1, :]  # [batch, nodes_lstm] ← last time step
         out = self.dropout(out)
 
         if self.dense is not None:
@@ -170,18 +170,18 @@ class LSTMModel(nn.Module):
 
 def _masked_mse_loss(y_pred, y_true, y_mask):
     """
-    Berechnet den MSE nur für die Werte, bei denen die Maske 1 ist.
+    Computes the MSE only for values where the mask is 1.
 
-    :param y_pred: Vorhersage [batch, n_targets]
-    :param y_true: Wahre Werte [batch, n_targets]
-    :param y_mask: Maske (1=echt, 0=interpoliert) [batch, n_targets]
-    :return: Skalarer Loss
+    :param y_pred: Prediction [batch, n_targets]
+    :param y_true: True values [batch, n_targets]
+    :param y_mask: Mask (1=real, 0=interpolated) [batch, n_targets]
+    :return: Scalar loss
     """
-    # Elementweise Differenz quadrieren
+    # Square the element-wise difference
     squared_error = (y_pred - y_true) ** 2
-    # Mit der Maske multiplizieren
+    # Multiply by the mask
     masked_error = squared_error * y_mask
-    # Durchschnitt über die echten Werte berechnen (Summe / Anzahl der echten Werte) - epsilon für damit nicht /0
+    # Compute the average over the real values (sum / number of real values) - epsilon so that it does not divide by 0
     loss = torch.sum(masked_error) / (torch.sum(y_mask) + 1e-8)
 
     return loss
@@ -189,39 +189,38 @@ def _masked_mse_loss(y_pred, y_true, y_mask):
 
 def _masked_mse_euclidean_loss(y_pred, y_true, y_mask, eps: float = 1e-8):
     """
-    Berechnet eine per-Target-Euclidean-Variante des MSE.
+    Computes a per-target Euclidean variant of the MSE.
 
-    Pro Target wird zunächst der MSE berechnet, daraus die Wurzel (RMSE)
-    gezogen und anschließend der Mittelwert über alle beobachteten Targets
-    quadriert. Dadurch trägt jedes Target unabhängig von seiner
-    Beobachtungsanzahl gleich viel zum Loss bei, während der Loss in
-    MSE-ähnlichen Einheiten bleibt.
+    For each target, the MSE is first computed, then its square root (RMSE)
+    is taken, and finally the mean over all observed targets is squared.
+    As a result, each target contributes equally to the loss regardless of
+    its number of observations, while the loss remains in MSE-like units.
 
         L = (mean_t sqrt(MSE_t))^2
 
-    :param y_pred: Vorhersage [batch, n_targets]
-    :param y_true: Wahre Werte [batch, n_targets]
-    :param y_mask: Maske (1=echt, 0=interpoliert) [batch, n_targets]
-    :param eps:    Kleiner Wert für numerische Stabilität
-    :return:       Skalarer Loss
+    :param y_pred: Prediction [batch, n_targets]
+    :param y_true: True values [batch, n_targets]
+    :param y_mask: Mask (1=real, 0=interpolated) [batch, n_targets]
+    :param eps:    Small value for numerical stability
+    :return:       Scalar loss
     """
     squared_error = (y_pred - y_true) ** 2 * y_mask
 
-    # MSE getrennt pro Target berechnen
+    # Compute MSE separately per target
     per_target_sq = torch.sum(squared_error, dim=0)
     per_target_count = torch.sum(y_mask, dim=0)
 
-    # Targets ohne beobachtete Werte ausschließen
+    # Exclude targets without observed values
     valid = per_target_count > 0
     if not torch.any(valid).item():
-        # Mit y_pred verbunden halten, damit backward() auch für einen
-        # vollständig maskierten Batch funktioniert.
+        # Keep connected to y_pred so that backward() also works for a
+        # fully masked batch.
         return torch.sum(y_pred) * 0.0
 
     per_target_mse = per_target_sq[valid] / (per_target_count[valid] + eps)
     per_target_rmse = torch.sqrt(per_target_mse + eps)
 
-    # Mittelwert der RMSEs quadrieren -> MSE-ähnliche Einheiten
+    # Square the mean of the RMSEs -> MSE-like units
     return torch.mean(per_target_rmse) ** 2
 
 
@@ -229,17 +228,18 @@ def create_model(n_features: int, n_targets: int, nodes_lstm: int, nodes_dense: 
                  dropout: float, learning_rate: float, num_layers: int = 2,
                  euclidean: bool = False):
     """
-    Erstellt ein LSTM-Modell und den Optimierer.
+    Creates an LSTM model and the optimizer.
 
-    :param n_features:    Anzahl der Eingabe-Features
-    :param n_targets:     Anzahl der Target-Features
-    :param nodes_lstm:    Neuronen in der LSTM-Schicht
-    :param nodes_dense:   Neuronen in der Dense-Schicht (0 = keine)
-    :param dropout:       Dropout-Rate
-    :param learning_rate: Lernrate des Adam-Optimierers
-    :param num_layers:    Anzahl der layers (Tiefe des Modells) default=2
-    :param euclidean:     Wenn True, wird der MSE per-Target-Euclidean aggregiert
-                          (mean_t sqrt(MSE_t))^2 statt über alle Werte gemittelt.
+    :param n_features:    Number of input features
+    :param n_targets:     Number of target features
+    :param nodes_lstm:    Neurons in the LSTM layer
+    :param nodes_dense:   Neurons in the dense layer (0 = none)
+    :param dropout:       Dropout rate
+    :param learning_rate: Learning rate of the Adam optimizer
+    :param num_layers:    Number of layers (model depth), default=2
+    :param euclidean:     If True, the MSE is aggregated per target in a
+                          Euclidean way, (mean_t sqrt(MSE_t))^2, instead of
+                          averaging over all values.
     :return: model, optimizer, loss_fn
     """
     model     = LSTMModel(n_features, n_targets, nodes_lstm, nodes_dense, dropout, num_layers)
@@ -252,18 +252,18 @@ def create_model(n_features: int, n_targets: int, nodes_lstm: int, nodes_dense: 
 def train_model(model: nn.Module, train_loader, val_loader,
                 optimizer, loss_fn, epochs: int, patience: int = 5):
     """
-    Trainiert das Modell mit manuellem Training Loop und EarlyStopping.
+    Trains the model with a manual training loop and early stopping.
 
-    :param model:        Das LSTM-Modell
-    :param train_loader: DataLoader für Trainingsdaten
-    :param val_loader:   DataLoader für Validierungsdaten
-    :param optimizer:    Adam-Optimierer
-    :param loss_fn:      Verlustfunktion (MSE oder per-Target-Euclidean-MSE)
-    :param epochs:       Maximale Epochenanzahl
-    :param patience:     Geduld für EarlyStopping
-    :return: history (dict mit train_loss und val_loss pro Epoche)
+    :param model:        The LSTM model
+    :param train_loader: DataLoader for training data
+    :param val_loader:   DataLoader for validation data
+    :param optimizer:    Adam optimizer
+    :param loss_fn:      Loss function (MSE or per-target Euclidean MSE)
+    :param epochs:       Maximum number of epochs
+    :param patience:     Patience for early stopping
+    :return: history (dict with train_loss and val_loss per epoch)
     """
-    #Auskommentiert - Scheduler kann implementiert werden - earlyStopping mit hochstellen
+    #Commented out - scheduler can be implemented - also raise early stopping
     #scheduler = optim.lr_scheduler.ReduceLROnPlateau(
     #    optimizer, mode='min', factor=0.5, patience=5, min_lr=1e-6
     #)
@@ -287,7 +287,7 @@ def train_model(model: nn.Module, train_loader, val_loader,
             optimizer.step()
             train_losses.append(loss.item())
 
-        # --- Validierung ---
+        # --- Validation ---
         model.eval()
         val_losses = []
         all_y_true = []
@@ -299,8 +299,8 @@ def train_model(model: nn.Module, train_loader, val_loader,
                 loss   = loss_fn(y_pred, y_batch, y_mask_batch)
                 val_losses.append(loss.item())
 
-                all_y_true.append(y_batch.cpu().numpy()) #Änderung wgn MultiTarget
-                all_y_pred.append(y_pred.cpu().numpy()) #Änderung wgn MultiTarget
+                all_y_true.append(y_batch.cpu().numpy()) #Change due to multi-target
+                all_y_pred.append(y_pred.cpu().numpy()) #Change due to multi-target
                 all_y_mask.append(y_mask_batch.cpu().numpy())
 
         train_loss = np.mean(train_losses)
@@ -334,6 +334,6 @@ def train_model(model: nn.Module, train_loader, val_loader,
                 print(f"Early Stopping nach Epoche {epoch+1}")
                 break
 
-    # Beste Gewichte wiederherstellen
+    # Restore the best weights
     model.load_state_dict(best_weights)
     return history

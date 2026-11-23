@@ -7,10 +7,10 @@ import matplotlib.image as mpimg
 #TODO: This script needs a full overhaul, as it is not up to date!
 def _load_split_boundaries(model_path, split_info):
     """
-    Lädt die Start- und Endzeitpunkte der Splits aus CSV-Datei.
+    Loads the start and end timestamps of the splits from a CSV file.
 
-    :param split_info: Dateiname der CSV-Datei mit Spalten "set", "start", "end"
-    :return: dict mit 'train', 'val', 'test' jeweils als (start, end) Timestamp-Tuple
+    :param split_info: Filename of the CSV file with columns "set", "start", "end"
+    :return: dict with 'train', 'val', 'test' each as (start, end) timestamp tuple
     """
     df = pd.read_csv(os.path.join(model_path, split_info))
     boundaries = {}
@@ -25,16 +25,16 @@ def _load_split_boundaries(model_path, split_info):
 
 def _load_predictions(model_folder):
     """
-    Lädt das Modell und die konsolidierten Vorhersage- und Zeitreihendateien aus dem Modellordner.
+    Loads the model and the consolidated prediction and time series files from the model folder.
 
-    :param model_folder: Pfad zum Modellordner (z.B. 'models/benchmark')
+    :param model_folder: Path to the model folder (e.g., 'models/benchmark')
     :return: predictions_full, y_true_full, timestamps_full
     """
     predictions = np.load(os.path.join(model_folder, "predictions_full.npy"))
     y_true = np.load(os.path.join(model_folder, "y_true_full.npy"))
     timestamps = np.load(os.path.join(model_folder, "dates_full.npy"), allow_pickle=True)
 
-    # Bytes zu Strings umwandeln, falls nötig
+    # Convert bytes to strings if necessary
     timestamps_str = [ts.decode('utf-8') if isinstance(ts, bytes) else ts for ts in timestamps]
     timestamps = pd.to_datetime(timestamps_str)
 
@@ -44,20 +44,20 @@ def _load_predictions(model_folder):
 
 def _plot_predictions_full_timeline(model_folder, output_path, szenario, boundaries):
     """
-    Erstellt eine Zeitreihengrafik für Messwerte und Vorhersagen über den gesamten Zeitraum.
-    Die Split-Grenzen (Validierung/Test) werden als vertikale Linien markiert.
+    Creates a time series plot for measurements and predictions over the entire period.
+    The split boundaries (validation/test) are marked as vertical lines.
 
-    :param model_folder: Pfad zum Modellordner
-    :param output_path: Pfad zum Ausgabeverzeichnis
-    :param szenario: Name des Szenarios (z.B. "benchmark")
-    :param boundaries: Dictionary mit Split-Grenzen (train/val/test)
+    :param model_folder: Path to the model folder
+    :param output_path: Path to the output directory
+    :param szenario: Name of the scenario (e.g., "benchmark")
+    :param boundaries: Dictionary with split boundaries (train/val/test)
     """
     y_pred, y_true, full_timestamps = _load_predictions(model_folder)
 
     if len(full_timestamps) != len(y_pred):
         raise ValueError(f"Längen passen nicht: {len(full_timestamps)} vs. {len(y_pred)}")
 
-    # Split-Grenzen aus CSV laden
+    # Load split boundaries from CSV
     val_start, _ = boundaries["val"]
     test_start, _ = boundaries["test"]
 
@@ -65,7 +65,7 @@ def _plot_predictions_full_timeline(model_folder, output_path, szenario, boundar
     ax.plot(full_timestamps, y_true, label='Messwert', color="black", linewidth=1.2)
     ax.plot(full_timestamps, y_pred, label='Vorhersage', color="red", linewidth=1.2, linestyle='--')
 
-    # Vertikale Linien mit exakten Zeitpunkten
+    # Vertical lines at exact timestamps
     if full_timestamps.min() < val_start < full_timestamps.max():
         ax.axvline(val_start, color='green', linestyle='--', linewidth=1.5)
     if full_timestamps.min() < test_start < full_timestamps.max():
@@ -83,22 +83,22 @@ def _plot_predictions_full_timeline(model_folder, output_path, szenario, boundar
 
 def _plot_predictions_test_timeline(model_folder, output_path, szenario, boundaries):
     """
-    Erstellt eine Zeitreihengrafik für Messwerte und Vorhersagen über den Testdatenzeitraum
+    Creates a time series plot for measurements and predictions over the test data period
 
-    :param model_folder: Pfad zum Modellordner
-    :param output_path: Pfad zum Ausgabeverzeichnis
-    :param szenario: Name des Szenarios (z.B. "benchmark")
+    :param model_folder: Path to the model folder
+    :param output_path: Path to the output directory
+    :param szenario: Name of the scenario (e.g., "benchmark")
     """
     y_pred, y_true, full_timestamps = _load_predictions(model_folder)
 
     if len(full_timestamps) != len(y_pred):
         raise ValueError(f"Längen passen nicht: {len(full_timestamps)} vs. {len(y_pred)}")
 
-    # Start-Zeitpunkt aus Boundaries holen und Start-Index daraus ermitteln
+    # Get start timestamp from boundaries and determine start index from it
     test_start_time = pd.to_datetime(boundaries["test"][0])
     start_index = np.searchsorted(full_timestamps, test_start_time)
 
-    # Synchrones Schneiden aller Arrays
+    # Synchronously slice all arrays
     y_pred = y_pred[start_index:]
     y_true = y_true[start_index:]
     full_timestamps = full_timestamps[start_index:]
@@ -121,11 +121,11 @@ def _plot_predictions_test_timeline(model_folder, output_path, szenario, boundar
 
 def _plot_scatter(model_folder, output_folder, szenario):
     """
-    Erstellt ein Scatterplot-Diagramm (gemessen vs. vorhergesagt) für ein Modell.
+    Creates a scatter plot (measured vs. predicted) for a model.
 
-    :param model_folder: Pfad zum Modellordner
-    :param output_folder: Pfad zum Ausgabeverzeichnis
-    :param szenario: Name des Szenarios (z.B. "benchmark")
+    :param model_folder: Path to the model folder
+    :param output_folder: Path to the output directory
+    :param szenario: Name of the scenario (e.g., "benchmark")
     """
     predictions, y_true, _ = _load_predictions(model_folder)
 
@@ -151,15 +151,15 @@ def _plot_scatter(model_folder, output_folder, szenario):
 
 def _combine_scatter_plots(image_names, input_folder, output_path, dpi=300):
     """
-    Kombiniert mehrere Scatterplots zu einem 2x2-Rasterbild,
-    ohne zusätzliche Beschriftungen (für kompakte Darstellung).
+    Combines multiple scatter plots into a 2x2 grid image,
+    without additional labels (for a compact presentation).
 
-    :param image_names: Liste der Bilddateinamen der Scatterplots
-    :param input_folder: Pfad zum Ordner mit den Scatterplot-Bildern
-    :param output_path: Pfad für das kombinierte Ausgabebild
-    :param dpi: Auflösung des Ausgabebildes (default=300)
+    :param image_names: List of image filenames of the scatter plots
+    :param input_folder: Path to the folder with the scatter plot images
+    :param output_path: Path for the combined output image
+    :param dpi: Resolution of the output image (default=300)
     """
-    # Zielgröße in cm → Umrechnung in Zoll
+    # Target size in cm → conversion to inches
     target_width_cm = 16
     target_height_cm = 10
     cm_to_inch = 1 / 2.54
@@ -183,12 +183,12 @@ def _combine_scatter_plots(image_names, input_folder, output_path, dpi=300):
 
 def _plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, output_scatter_dir):
     """
-    Führt die Erstellung von Zeitreihen- und Scatterplots für alle angegebenen Szenarien durch.
+    Performs the creation of time series and scatter plots for all specified scenarios.
 
-    :param szenarien: Liste der Szenarien (z.B. ["benchmark", "low_input", ...])
-    :param base_model_dir: Basisordner, in dem die Modelle gespeichert sind
-    :param output_zeitreihe_dir: Zielordner für Zeitreihengrafiken
-    :param output_scatter_dir: Zielordner für Scatterplots
+    :param szenarien: List of scenarios (e.g., ["benchmark", "low_input", ...])
+    :param base_model_dir: Base folder where the models are stored
+    :param output_zeitreihe_dir: Target folder for time series plots
+    :param output_scatter_dir: Target folder for scatter plots
     """
     for szenario in szenarien:
         model_path = os.path.join(base_model_dir, szenario)
@@ -210,11 +210,11 @@ def _plot_models_bachelor(szenarien, base_model_dir, output_zeitreihe_dir, outpu
 
 def _plot_models_data_type_exclusion(szenarien, base_model_dir, output_zeitreihe_dir):
     """
-    Führt die Erstellung von Zeitreihenplots für alle angegebenen Szenarien durch.
+    Performs the creation of time series plots for all specified scenarios.
 
-    :param szenarien: Liste der Szenarien (z.B. ["benchmark", "low_input", ...])
-    :param base_model_dir: Basisordner, in dem die Modelle gespeichert sind
-    :param output_zeitreihe_dir: Zielordner für Zeitreihengrafiken
+    :param szenarien: List of scenarios (e.g., ["benchmark", "low_input", ...])
+    :param base_model_dir: Base folder where the models are stored
+    :param output_zeitreihe_dir: Target folder for time series plots
     """
     for szenario in szenarien:
         model_path = os.path.join(base_model_dir, szenario)
@@ -245,8 +245,8 @@ def _plot_models_data_type_exclusion(szenarien, base_model_dir, output_zeitreihe
 
 def main():
     """
-    Hauptfunktion: erstellt Zeitreihen- und Scatterplots für alle Szenarien
-    und kombiniert die Scatterplots in einem 2x2-Gesamtbild.
+    Main function: creates time series and scatter plots for all scenarios
+    and combines the scatter plots into a 2x2 overall image.
     """
     szenarien = ["benchmark", "low_input", "not_lyser", "not_nit","not_prec","not_soil", "not_water_qual",
                  "not_water_lvl","not_temp", "not_wind", "not_ec", "not_atmos"]
@@ -277,7 +277,7 @@ def main():
 
 def test_single_model():
     """
-    Testfunktion: führt die Plot-Erstellung nur für das Benchmark-Szenario aus.
+    Test function: runs plot creation only for the benchmark scenario.
     """
     szenarien = ["benchmark"]
     base_model_dir = "models"
@@ -293,7 +293,7 @@ def test_single_model():
 
 def data_type_exclusion_graphs():
     """
-    Plot-Erstellung für alle Szenarien der data_typ exklusion (nur der test-Zeitabschnitt) (nur zeitreihe)
+    Plot creation for all scenarios of the not_x scenarios (only the test time period) (only time series)
     """
     szenarien = ["benchmark", "not_prec","not_soil", "not_water_qual",
                  "not_water_lvl","not_temp", "not_wind", "not_ec", "not_atmos"]
