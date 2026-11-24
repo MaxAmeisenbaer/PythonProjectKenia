@@ -26,9 +26,11 @@ def _parse_args():
     """
     Function that reads arguments from console calls.
     Arguments:
-    --scenario      Scenario to be used for the benchmark
+    --scenario      defines the scenario to be used for the hp_training
     --trials        Number of Bayesian combinations to be tested
     --euclidean     Loss-Function with Euclidean Distance
+
+    :return: returns the arguments read from the console
     """
     parser = argparse.ArgumentParser(
         description="Optuna hyperparameter tuning for LSTM scenarios"
@@ -67,6 +69,7 @@ def _objective(trial, data, n_features, n_targets, euclidean: bool = False):
     :param n_targets:  Number of target variables
     :param euclidean:  If True, the per-target Euclidean MSE variant is used
                        as the loss.
+
     :return:           Best validation loss (val_loss) as float
     """
     # Each trial gets a reproducible but separate seed.
@@ -138,6 +141,7 @@ def _save_best_artifacts(study, best_model, history, data, config_name,
     :param euclidean:        If True, the artifacts are stored in a separate
                              subdirectory so that MSE and Euclidean runs do not
                              overwrite each other.
+
     :return:                 (best_config, output_dir)
     """
     if output_root is None:
@@ -212,6 +216,8 @@ def run_hp_training(scenario: str = "benchmark", n_trials: int = 20,
     :param euclidean:       If True, the per-target Euclidean MSE variant is used
                             as the loss. MSE and Euclidean runs are stored in
                             separate Optuna studies and output directories.
+
+    :return: best config: Returns the best hyperparameters determined by the hp_training
     """
     # Load scenario
     stations, measurements, target_features, config_name = SCENARIO_GETTERS[scenario]()

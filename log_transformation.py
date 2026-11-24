@@ -7,8 +7,9 @@ def analyze_skewness(df: pd.DataFrame) -> dict:
     Reads the skewness and the percentage-zero rate (pct_zero) for
     each column in the DataFrame. Returns a nested Python dict.
 
-    :param df  – DataFrame with all time series
-    :return   – { 'col_name': { 'skew': <float>, 'pct_zero': <float> } }
+    :param df:  DataFrame with all time series
+
+    :return:   dictionary with the skew and the percentage of zeros for each column
     """
     skew  = df.skew()                    # float Series
     pct   = (df == 0).mean() * 100       # Fractions → percent
@@ -23,6 +24,10 @@ def _ensure_positive(x: np.ndarray):
     """Adds a shift so that all finite values become > 0.
 
     NaN values are ignored (np.nanmin) and remain NaN in the result.
+
+    :param x: Numpy-Array of a variable
+
+    :return: changed version of the numpy-array with the changed shift returned as well
     """
     x = np.asarray(x, dtype=float)
     finite = np.isfinite(x)
@@ -44,6 +49,7 @@ def log_transform_log1p(df, col):
 
     :param df: DataFrame
     :param col: Name of the column to transform
+
     :return: DataFrame with transformed columns
     """
     x = df[col]
@@ -64,6 +70,7 @@ def log_transform_eps(df, col, epsilon=1e-6):
     :param df: DataFrame
     :param col: Name of the column to transform
     :param epsilon: Small offset to avoid log(0)
+
     :return: DataFrame with transformed columns
     """
     x = df[col]
@@ -78,13 +85,13 @@ def log_transform_eps(df, col, epsilon=1e-6):
 
 def boxcox_transform(df, col):
     """
-    Performs the Box-Cox transformation for a column, computes
+    Performs the Box-Cox transformation for a column.
+    For that it fetches optimal lambda (*MLE* parameter) and shift (to ensure positive values)
 
-    `lambda`  – the *MLE* parameter
-    `shift`   – a positive shift if necessary
+    :param df: DataFrame of Variables
+    :param col: Columns that is supposed to be boxcox_transformed
 
-    Returns:
-        tuple(DataFrame, {'lambda': float, 'shift': float})
+    :return: transformed dataframe, dictionary of lambda and shift used for transformation
     """
     x_raw = df[col].values.astype(float)
 
@@ -118,6 +125,7 @@ def inverse_log_transform(y_true, y_pred, method, epsilon=1e-6):
     :param y_pred: Transformed predicted values (numpy array)
     :param method: dict with information on log type and parameters
     :param epsilon: Small offset to avoid log(0)
+
     :return: Inverse-transformed values
     """
     if method["type"] == "log1p":
@@ -135,6 +143,7 @@ def inverse_log_transform(y_true, y_pred, method, epsilon=1e-6):
         lam = method["params"]["lambda"]
         shift = method["params"].get("shift", 0.0)
 
+        # Function for Reversing the BoxCox-Transformation
         def inv_boxcox(x):
             if np.isclose(lam, 0):
                 return np.exp(x)

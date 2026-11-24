@@ -47,6 +47,7 @@ def _generate_model_name(config_name, target_features, output_path="model_log.xl
     :param config_name: Name of the configuration (e.g., "benchmark")
     :param target_features: List of target variables
     :param output_path: Path to the Excel log file for existing models
+
     :return: String with the new model name
     """
     stations = []
@@ -93,7 +94,8 @@ def _prepare_data(config, target_features, stations, measurements):
     :param target_features: List of target variables (e.g., "SHA_Nit")
     :param stations: List of stations used
     :param measurements: List of measurements
-    :return: train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, scaler_y
+
+    :return: Prepared data coming from create_final_ds (datasets and -frames for train,val,test + timestamps, transformation-info and scaler-info)
     """
     train_ds, val_ds, test_ds, train_df, test_df, val_df, x_full, full_ds, timestamps_full, target_transformations, scaler_y = create_final_ds(
         stations=stations,
@@ -114,6 +116,7 @@ def _build_and_train_model(train_loader, val_loader, config, n_features: int, n_
     :param config:       Dictionary with model parameters
     :param n_features:   Number of input features
     :param n_targets:    Target variables of the model
+
     :return:             Trained model, history dictionary
     """
     model, optimizer, loss_fn = create_model(
@@ -148,6 +151,7 @@ def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool =
     - Compute the metrics
     - Save the model, log entry, and split boundaries
     - Evaluate on the full dataset
+
     :param scenario: Name of the scenario ("benchmark", "low_input", "test_code")
     :param nitrate_only_metrics: Opt-in. If True, in addition to the metrics
         over all targets, the metrics are computed exclusively over the nitrate
@@ -161,6 +165,7 @@ def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool =
         square root is taken and the mean over the targets is squared:
         (mean_t sqrt(MSE_t))^2. As a result, all targets contribute equally to
         the loss regardless of their number of observations.
+
     :return: Dictionary with model name and computed metrics
     """
     # Reproducible initialization and training order

@@ -10,7 +10,11 @@ from log_transformation import inverse_log_transform
 
 
 def _nanmean(values: list[float]) -> float:
-    """Mean over all finite values; NaN if none are present."""
+    """
+    Mean over all finite values (of a evaluation metric); NaN if none are present.
+
+    :param values: list of floats of a metric
+    """
     finite = [value for value in values if np.isfinite(value)]
     return float(np.mean(finite)) if finite else float("nan")
 
@@ -20,7 +24,9 @@ NITRATE_TARGET_SUFFIX = "_nit"
 
 
 def _empty_metrics() -> dict[str, float]:
-    """Returns a metric dictionary with NaN values."""
+    """
+    Returns a metric dictionary with NaN values.
+    """
     return {name: float("nan") for name in METRIC_NAMES}
 
 
@@ -34,6 +40,7 @@ def _compute_metrics_per_target(y_true_all, y_pred_all, y_mask_all,
     :param y_mask_all: Observation mask [n_samples, n_targets] (1 = observed)
     :param target_features: List of column names of the target features
     :param target_transformations: Dict with the methods per target feature
+
     :return: Dictionary {target_name: {metric_name: value}}
     """
     metrics_per_target = {}
@@ -132,6 +139,7 @@ def _aggregate_metrics(metrics_per_target, target_features, suffix=""):
     :param metrics_per_target: Dictionary from _compute_metrics_per_target
     :param target_features: Targets over which to average
     :param suffix: Optional suffix for the metric names (e.g., "_nit")
+
     :return: Dictionary with averaged metrics
     """
     aggregated = {}
@@ -162,6 +170,7 @@ def calculate_all_metrics(model, test_loader, target_features, target_transforma
     :param include_per_target: If True, in addition, the metrics for each
         individual target feature are returned, named "<metric>_<target>"
         (e.g., "MSE_NF_nit" or "KGE_SHA_disch").
+
     :return: Dictionary with averaged MSE, RMSE, MAE, R2, NSE, MBE, KGE over all
         target features; optionally also the same metrics with suffix "_nit"
         over the nitrate targets and/or per individual target feature.

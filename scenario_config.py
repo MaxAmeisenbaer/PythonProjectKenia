@@ -22,11 +22,14 @@ DEFAULT_TARGETS = ["NF_nit","SHA_nit","TTP_nit"]
 
 def _get_scenario_config(scenario_type, missing_measurements=None, custom_targets=None, missing_stations=None):
     """
-    Generates a configuration based on the master set.
+    Generates a configuration based on the master set. Is used by more specific scenario-setups
+
     :param scenario_type: Name/type of the scenario
-    :param custom_targets: Output targets (default: NF_nit,SHA_nit,TTP_nit)
+    :param custom_targets: Output targets (default: DEFAULT_TARGETS)
     :param missing_stations: Stations to be excluded
     :param missing_measurements: Measurement variables to be excluded
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
 
     stations = copy.deepcopy(MASTER_STATIONS)
@@ -74,22 +77,26 @@ def _get_scenario_config(scenario_type, missing_measurements=None, custom_target
 
 def _add_disch():
     """
-    Custom setting for disch runs
-    :return: custom_targets, missing_stations
+    Function that adds discharge-variables to the DEFAULT_TARGETS
+
+    :return: Custom-target with added discharge-variables and water-level excluded from the measurements
     """
 
-    custom_targets = ["NF_disch","NF_nit","SHA_disch","SHA_nit","TTP_disch","TTP_nit"]
+    custom_targets = list(DEFAULT_TARGETS)
+    for station, measurements in MASTER_MEASUREMENTS.items():
+        if "disch" in measurements:
+            custom_targets.append(f"{station}_disch")
     excluded_measurements = ["NF_wl","SHA_wl","TTP_wl"]
 
     return custom_targets, excluded_measurements
 
-#Work in progress - JLUKICHAT
 
 def get_test_code_config():
     """
     Variant intended only for minimal tests
     Remaining: Fin,Fun prec + custom targets - the _get_scenario_config features are tested via SHA and TTP_tur
-    :return: stations, measurements, target_features, config_name
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "test_code"
     excluded_measurements = ["disch", "doc", "elc", "prec", "tcd", "toc", "tsp", "tur", "wl"]
@@ -105,8 +112,9 @@ def get_test_code_config():
 
 def get_benchmark_config():
     """
-    Excluded Measurements: None
-    :return: stations, measurements, target_features, config_name
+    Base-Scenario including all available stations and measurements
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "benchmark"
     stations, measurements, target_features, config_name = _get_scenario_config(scenario_type)
@@ -116,8 +124,10 @@ def get_benchmark_config():
 
 def get_not_atmos_config():
     """
-    Excluded Measurements: par,rh
-    :return: stations, measurements, target_features, config_name
+    Adapted Scenario including all stations but excluding:
+    photosynthetically active radiation (par) and Relative Humidity (rh)
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "not_atmos"
     excluded_measurements = ["par", "rh"]
@@ -129,8 +139,10 @@ def get_not_atmos_config():
 
 def get_not_ec_config():
     """
-    Excluded Measurements: ec15,elc
-    :return: stations, measurements, target_features, config_name
+    Adapted Scenario including all stations but excluding:
+    electric charge in 15cm deep soil (ec15) and electric charge measured in the water (elc)
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "not_ec"
     excluded_measurements = ["ec15", "elc"]
@@ -141,8 +153,10 @@ def get_not_ec_config():
 
 def get_not_prec_config():
     """
-    Excluded Measurements: prec
-    :return: stations, measurements, target_features, config_name
+    Adapted Scenario including all stations but excluding:
+    Precepitation (prec)
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "not_prec"
     excluded_measurements = ["prec"]
@@ -153,8 +167,10 @@ def get_not_prec_config():
 
 def get_not_soil_config():
     """
-    Excluded Measurements: ec15,stemp15,vwc15
-    :return: stations, measurements, target_features, config_name
+    Adapted Scenario including all stations but excluding:
+    Soil measurements of electricity (ec15), soil temperature (stemp15) and soil moisture (vwc15) in 15cm depth
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "not_soil"
     excluded_measurements = ["ec15", "stemp15", "vwc15"]
@@ -165,11 +181,13 @@ def get_not_soil_config():
 
 def get_not_temp_config():
     """
-    Excluded Measurements: tcp,temp,tsp
-    :return: stations, measurements, target_features, config_name
+    Adapted Scenario including all stations but excluding:
+    All temperature measurements in the water (tsp,tcd) and in the ait (temp)
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "not_temp"
-    excluded_measurements = ["tcp", "temp", "tsp"]
+    excluded_measurements = ["tcd", "temp", "tsp"]
     stations, measurements, target_features, config_name = _get_scenario_config(scenario_type=scenario_type,
                                                                                missing_measurements=excluded_measurements)
     return stations, measurements, target_features, config_name
@@ -177,8 +195,10 @@ def get_not_temp_config():
 
 def get_not_water_lvl_config():
     """
-    Excluded Measurements: disch,wl
-    :return: stations, measurements, target_features, config_name
+    Adapted Scenario including all stations but excluding:
+    discharge (disch) and waterlevel (wl) of the river-measurements
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "not_water_lvl"
     excluded_measurements = ["disch", "wl"]
@@ -189,8 +209,10 @@ def get_not_water_lvl_config():
 
 def get_not_water_qual_config():
     """
-    Excluded Measurements: doc,toc,tur
-    :return: stations, measurements, target_features, config_name
+    Adapted Scenario including all stations but excluding:
+    Water-Quality Measurements as dilluded organic carbon (doc), total organic carbon (toc) and turbidity (tur)
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "not_water_qual"
     excluded_measurements = ["doc", "toc", "tur"]
@@ -201,8 +223,10 @@ def get_not_water_qual_config():
 
 def get_not_wind_config():
     """
-    Excluded Measurements: dir,wind,gust
-    :return: stations, measurements, target_features, config_name
+    Adapted Scenario including all stations but excluding:
+    All wind-related variables as wind speed (wind), gust speed (gust) and wind direction (dir)
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "not_wind"
     excluded_measurements = ["dir", "wind", "gust"]
@@ -212,8 +236,10 @@ def get_not_wind_config():
 
 def get_disch_config():
     """
-    Variant with discharge as target feature
-    :return: stations, measurements, target_features, config_name
+    Adapted Scenario including all stations and all measurements but changing:
+    discharge (disch) as target feature, water level (wl) excluded for data leakage purposes
+
+    :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "disch"
     custom_target, excluded_measurements = _add_disch()

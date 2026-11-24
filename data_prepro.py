@@ -18,6 +18,7 @@ def _load_and_trim_dataframe(filepath, valid_time_suffix="0:00"):
 
     :param filepath: Path to the CSV file
     :param valid_time_suffix: Time-of-day suffix for filtering (e.g., "0:00" for full 10-min), None disables filtering
+
     :return: Trimmed DataFrame with datetime index
     """
     start_date = "2015-04-28 11:00:00"
@@ -65,6 +66,7 @@ def _create_standard_measurement_df(filename, measure, interval, directory="Data
     :param measure: Short code for the measurement (e.g., 'temp', 'ec')
     :param interval: Time interval for resampling (e.g., '10min')
     :param directory: Data directory
+
     :return: Prepared DataFrame with a standardized column name
     """
     filepath = os.path.join(directory, filename)
@@ -86,6 +88,7 @@ def _create_precipitation_df(station, interval, directory="Data"):
     :param station: Station short code (Identifiyer)
     :param interval: Time interval for resampling
     :param directory: Data directory
+
     :return: Prepared DataFrame with summed precipitation values
     """
     filepath = os.path.join(directory, f"{station}-prec.csv")
@@ -109,6 +112,7 @@ def _get_station_coordinates(directory="Data"):
     Reads coordinates from Mau_instrumentation.csv and creates a mapping over stations
 
     :param directory: Path to the folder for the file
+
     :return: Dictionary with station short code and lon/lat
     """
     filepath = os.path.join(directory, "Mau_instrumentation.csv")
@@ -127,6 +131,8 @@ def _impute_precipitation(df, station_coords, p = 2):
     :param df: The combined DataFrame with all prec columns
     :param station_coords: Dict {station_name: (lat, lon)}
     :param p: Power parameter for weighting (higher = nearby stations dominate more)
+
+    :return: Dataframe with all precipitation data
     """
     prec_cols = [c for c in df.columns if c.endswith("_prec")]
 
@@ -174,6 +180,7 @@ def _create_filenames(stations, measurements):
 
     :param stations: List of station names
     :param measurements: Dictionary with measurement lists per station
+
     :return: List of filenames (e.g., 'SHA-temp.csv')
     """
     filenames = [
@@ -193,7 +200,8 @@ def load_data(stations, measurements, target_features, interval="10min"):
     :param measurements: Dictionary with measurement lists per station
     :param target_features: List of target features
     :param interval: Time interval for resampling
-    :return: Combined DataFrame of all time series & dictionary with transformation of the target features
+
+    :return: Combined DataFrame of all time series (merge all other with prec) & dictionary with transformation of the target features
     """
     filenames = _create_filenames(stations, measurements)
     frames = []
@@ -289,6 +297,7 @@ def _split_dataset(df, split_ratios=(0.6, 0.2, 0.2)):
 
     :param df: Full DataFrame
     :param split_ratios: Tuple with (train, val, test) proportions
+
     :return: train_df, val_df, test_df
     """
     n = len(df)
@@ -310,6 +319,7 @@ def _scale_features(train_df, val_df, test_df, target_features):
     :param val_df: Validation data
     :param test_df: Test data
     :param target_features: Name of the target variable (not to be scaled)
+
     :return: Scaled arrays (train, val, test) and the scaler used
     """
     scaler = MinMaxScaler()
@@ -335,9 +345,11 @@ def _scale_features(train_df, val_df, test_df, target_features):
 def _interleave_inputs(x_scaled, truth_mask_values):
     """
     Creates the [value, mask, value, mask] format.
+
     :param x_scaled: Scaled x values
     :param truth_mask_values: Values that indicate interpolation of the variable
-    :return: Masked input data (info on interpolation
+
+    :return: Masked input data (info on interpolation)
     """
     n_samples, n_features = x_scaled.shape
     x_interleaved = np.zeros((n_samples, n_features * 2), dtype=np.float32)
@@ -359,6 +371,7 @@ def _prepare_targets(train_df, val_df, test_df, target_features, truth_mask_df):
     :param test_df: Test data
     :param target_features: Name of the target variable
     :param truth_mask_df: NA masking data
+
     :return: y_train, y_val, y_test as 2D arrays and their mask variants containing the NA information
     """
     y_train = train_df[target_features].values.astype(np.float32)
@@ -400,6 +413,7 @@ def make_dataloaders(
     :param seq_length:  Sequence length for the LSTM
     :param batch_size:  Batch size
     :param num_workers: Number of parallel loading processes (0 = main process)
+
     :return: train_loader, val_loader, test_loader
     """
     train_ds = TimeSeriesDataset(x_train, y_train, y_train_mask, seq_length)
@@ -477,6 +491,7 @@ class TimeSeriesDatasetWithTimestamps(Dataset):
     Input matrix [n_samples, n_features]. The target value is the last time step
     of the window (same-step reconstruction) - consistent with TimeSeriesDataset.
 
+    :param data:        Input matrix (numpy array) [n_samples, n_features]
     :param target:      Target matrix   (numpy array) [n_samples, 1]
     :param timestamps:  Timestamp array (numpy, dtype datetime64 or str)
     :param seq_length:  Count
@@ -517,7 +532,12 @@ def prepare_data_arrays(stations: list, measurements: dict, target_features: str
     The result can be used multiple times for different seq_length/batch_size
     (e.g., in the Optuna objective) without reloading the CSV files.
 
-    :return: Dictionary with all prepared arrays and metadata
+    :param stations:        List of Stations of the dataframe
+    :param measurements:    Dictionary of Measurement of the stations
+    :param target_features: String of Output-/Target-Features
+    :param interval:        String indicating the time interval used in the model
+
+    :return:            Dictionary with all prepared arrays and metadata
     """
     # Load data
     df, truth_mask, target_transformations = load_data(
@@ -587,9 +607,16 @@ def create_final_ds(
     The expensive, hyperparameter-independent preprocessing is moved to prepare_data_arrays()
     and can be reused for multiple calls.
 
+    :param stations:        List of Stations of the dataframe
+    :param measurements:    Dictionary of Measurement of the stations
+    :param target_features: String of Output-/Target-Features
+    :param seq_length:  Sequence length for the LSTM [REVIEW]
+    :param batch_size:  Batch size [REVIEW]
+    :param interval:        String indicating the time interval used in the model
     :param include_full: If False, the full dataset (x_full, full_dataset,
                          timestamps_full, scaler_y) is not created. It is not needed for the
                          hyperparameter search and saves a lot of memory depending on seq_length.
+
     :return: train_loader, val_loader, test_loader,
              train_df, test_df, val_df,
              x_full, full_dataset, timestamps_full, target_transformations, scaler_y

@@ -9,6 +9,7 @@ def _load_split_boundaries(model_path, split_info):
     """
     Loads the start and end timestamps of the splits from a CSV file.
 
+    :param model_path: [MISPARAM]
     :param split_info: Filename of the CSV file with columns "set", "start", "end"
     :return: dict with 'train', 'val', 'test' each as (start, end) timestamp tuple
     """
@@ -25,7 +26,7 @@ def _load_split_boundaries(model_path, split_info):
 
 def _load_predictions(model_folder):
     """
-    Loads the model and the consolidated prediction and time series files from the model folder.
+    Loads the model and the consolidated prediction and time series files from the model folder. [MISDESC]
 
     :param model_folder: Path to the model folder (e.g., 'models/benchmark')
     :return: predictions_full, y_true_full, timestamps_full
@@ -88,6 +89,7 @@ def _plot_predictions_test_timeline(model_folder, output_path, szenario, boundar
     :param model_folder: Path to the model folder
     :param output_path: Path to the output directory
     :param szenario: Name of the scenario (e.g., "benchmark")
+    :param boundaries: [MISPARAM]
     """
     y_pred, y_true, full_timestamps = _load_predictions(model_folder)
 
@@ -245,7 +247,7 @@ def _plot_models_data_type_exclusion(szenarien, base_model_dir, output_zeitreihe
 
 def main():
     """
-    Main function: creates time series and scatter plots for all scenarios
+    Main function: creates time series and scatter plots for all scenarios [MISDESC]
     and combines the scatter plots into a 2x2 overall image.
     """
     szenarien = ["benchmark", "low_input", "not_lyser", "not_nit","not_prec","not_soil", "not_water_qual",

@@ -33,6 +33,7 @@ def compute_nse(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
 
     :param y_true: Observed values
     :param y_pred: Predicted values
+
     :return: Average NSE value over all target features as float
     """
     n_targets = y_true.shape[1]
@@ -58,6 +59,7 @@ def compute_mbe(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
 
     :param y_true: Observed values
     :param y_pred: Predicted values
+
     :return: MBE value as float
     """
     return (y_pred - y_true).mean().item()
@@ -72,6 +74,7 @@ def _kling_gupta_efficiency(sim: np.ndarray, obs: np.ndarray,
     :param obs:  Observations [n_samples, n_targets]
     :param mask: Optional observation mask [n_samples, n_targets]
                  (1 = observed, 0 = missing/imputed)
+
     :return: Average KGE value (maximum 1, the closer to 1 the better)
     """
     n_targets = sim.shape[1]
@@ -156,6 +159,7 @@ class LSTMModel(nn.Module):
         Forward pass through the model.
 
         :param x: Input tensor [batch_size, seq_length, n_features]
+
         :return:  Output tensor [batch_size, 1]
         """
         out, _ = self.lstm(x)  # [batch, seq_len, nodes_lstm]
@@ -175,6 +179,7 @@ def _masked_mse_loss(y_pred, y_true, y_mask):
     :param y_pred: Prediction [batch, n_targets]
     :param y_true: True values [batch, n_targets]
     :param y_mask: Mask (1=real, 0=interpolated) [batch, n_targets]
+
     :return: Scalar loss
     """
     # Square the element-wise difference
@@ -202,6 +207,7 @@ def _masked_mse_euclidean_loss(y_pred, y_true, y_mask, eps: float = 1e-8):
     :param y_true: True values [batch, n_targets]
     :param y_mask: Mask (1=real, 0=interpolated) [batch, n_targets]
     :param eps:    Small value for numerical stability
+
     :return:       Scalar loss
     """
     squared_error = (y_pred - y_true) ** 2 * y_mask
@@ -240,6 +246,7 @@ def create_model(n_features: int, n_targets: int, nodes_lstm: int, nodes_dense: 
     :param euclidean:     If True, the MSE is aggregated per target in a
                           Euclidean way, (mean_t sqrt(MSE_t))^2, instead of
                           averaging over all values.
+
     :return: model, optimizer, loss_fn
     """
     model     = LSTMModel(n_features, n_targets, nodes_lstm, nodes_dense, dropout, num_layers)
@@ -261,6 +268,7 @@ def train_model(model: nn.Module, train_loader, val_loader,
     :param loss_fn:      Loss function (MSE or per-target Euclidean MSE)
     :param epochs:       Maximum number of epochs
     :param patience:     Patience for early stopping
+
     :return: history (dict with train_loss and val_loss per epoch)
     """
     #Commented out - scheduler can be implemented - also raise early stopping
