@@ -452,7 +452,7 @@ class TimeSeriesDataset(Dataset):
 
     :param data:       Input matrix (numpy array) [n_samples, n_features]
     :param target:     Target matrix (numpy array)    [n_samples, 1]
-    :param target_mask: Masked Matrix for the Target variable (numpy array), 0=Sampled Data, 1=Interpolated
+    :param target_mask: Masked Matrix for the Target variable (numpy array), 0=Imputed, 1=Observed
     :param seq_length: Count
     """
     def __init__(self, data: np.ndarray, target: np.ndarray,target_mask: np.ndarray, seq_length: int):
