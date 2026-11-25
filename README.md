@@ -102,13 +102,25 @@ Hyperparameter tuning only determines and saves the best configuration and artif
 
 ### 2. Train and Evaluate a Model
 
-The `__main__` block at the bottom of `lstm_main.py` currently runs:
+`lstm_main.py` reads its settings from the command line, so no code changes are
+needed to run a different scenario:
 
-```python
-run(scenario="benchmark")
+```bash
+python lstm_main.py
+python lstm_main.py --scenario disch
+python lstm_main.py --scenario disch --nitrate-only-metrics --per-target-metrics
+python lstm_main.py --scenario benchmark --euclidean
 ```
 
-To use another scenario, edit that call or import `run` directly:
+Arguments:
+
+- `--scenario`: scenario to train (default: `benchmark`); all scenarios from
+  `scenario_config.py` are available
+- `--nitrate-only-metrics`: additionally log nitrate-only metrics (suffix `_nit`)
+- `--per-target-metrics`: additionally log metrics for each individual target
+- `--euclidean`: use the per-target Euclidean loss instead of the global MSE
+
+The same settings can still be passed programmatically:
 
 ```python
 from lstm_main import run

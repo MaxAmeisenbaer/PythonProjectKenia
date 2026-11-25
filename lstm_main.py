@@ -1,3 +1,4 @@
+import argparse
 import os
 import re
 import torch
@@ -13,6 +14,66 @@ from evaluate_model import (
     evaluate_and_store_full_predictions,
     NITRATE_TARGET_SUFFIX,
 )
+
+
+# Legacy code: not_nit_config, not_lyser_config, low_input_config
+SCENARIO_GETTERS = {
+    "benchmark": get_benchmark_config,
+    "disch": get_disch_config,
+    "not_atmos": get_not_atmos_config,
+    "not_ec": get_not_ec_config,
+    "not_prec": get_not_prec_config,
+    "not_soil": get_not_soil_config,
+    "not_temp": get_not_temp_config,
+    "not_water_lvl": get_not_water_lvl_config,
+    "not_water_qual": get_not_water_qual_config,
+    "not_wind": get_not_wind_config,
+    "test_code": get_test_code_config,
+}
+
+
+def _parse_args():
+    """
+    Function that reads arguments from console calls.
+    Arguments:
+    --scenario              defines the scenario to be used for training (default: benchmark)
+    --nitrate-only-metrics  additionally logs nitrate-only metrics (suffix "_nit")
+    --per-target-metrics    additionally logs metrics for each individual target
+    --euclidean             loss-function with Euclidean distance
+
+    :return: returns the arguments read from the console
+    """
+    parser = argparse.ArgumentParser(
+        description="Train and evaluate an LSTM model for a given scenario"
+    )
+    parser.add_argument(
+        "--scenario",
+        choices=SCENARIO_GETTERS,
+        default="benchmark",
+        help="Scenario to train (default: benchmark)"
+    )
+    parser.add_argument(
+        "--nitrate-only-metrics",
+        action="store_true",
+        help=(
+            "Additionally log metrics computed exclusively over the nitrate "
+            "targets (suffix '_nit')."
+        )
+    )
+    parser.add_argument(
+        "--per-target-metrics",
+        action="store_true",
+        help="Additionally log metrics for each individual target feature."
+    )
+    parser.add_argument(
+        "--euclidean",
+        action="store_true",
+        help=(
+            "Use the per-target Euclidean MSE aggregation "
+            "(mean_t sqrt(MSE_t))^2 instead of the global MSE."
+        )
+    )
+    return parser.parse_args()
 
 
 def _save_model_metadata(model_name, params, output_path="model_log.xlsx"):
@@ -152,7 +213,8 @@ def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool =
     - Save the model, log entry, and split boundaries
     - Evaluate on the full dataset
 
-    :param scenario: Name of the scenario ("benchmark", "low_input", "test_code")
+    :param scenario: Name of the scenario (see SCENARIO_GETTERS, e.g. "benchmark",
+        "disch", "not_prec", "test_code")
     :param nitrate_only_metrics: Opt-in. If True, in addition to the metrics
         over all targets, the metrics are computed exclusively over the nitrate
         targets (suffix "_nit") and logged with suffix "_nit" (e.g., "MSE_nit").
@@ -171,32 +233,9 @@ def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool =
     # Reproducible initialization and training order
     set_seed(42)
 
-    if scenario == "benchmark":
-        stations, measurements, target_features, config_name = get_benchmark_config()
-    elif scenario == "disch":
-        stations, measurements, target_features, config_name = get_disch_config()
-    elif scenario == "not_prec":
-        stations, measurements, target_features, config_name = get_not_prec_config()
-    elif scenario == "not_soil":
-        stations, measurements, target_features, config_name = get_not_soil_config()
-    elif scenario == "not_water_qual":
-        stations, measurements, target_features, config_name = get_not_water_qual_config()
-    elif scenario == "not_water_lvl":
-        stations, measurements, target_features, config_name = get_not_water_lvl_config()
-    elif scenario == "not_temp":
-        stations, measurements, target_features, config_name = get_not_temp_config()
-    elif scenario == "not_wind":
-        stations, measurements, target_features, config_name = get_not_wind_config()
-    elif scenario == "not_ec":
-        stations, measurements, target_features, config_name = get_not_ec_config()
-    elif scenario == "not_atmos":
-        stations, measurements, target_features, config_name = get_not_atmos_config()
-    elif scenario == "test_code":
-        stations, measurements, target_features, config_name = get_test_code_config()
-    else:
+    if scenario not in SCENARIO_GETTERS:
         raise ValueError(f"Unbekanntes Szenario: {scenario}")
-
-#Legacy code: not_nit_config, not_lyser_config, low_input_config
+    stations, measurements, target_features, config_name = SCENARIO_GETTERS[scenario]()
 
     # Request nitrate-only metrics only if nitrate targets are present
     nitrate_targets = [
@@ -289,4 +328,10 @@ def run(scenario, nitrate_only_metrics: bool = False, per_target_metrics: bool =
 
 
 if __name__ == "__main__":
-    run(scenario="benchmark")
+    args = _parse_args()
+    run(
+        scenario=args.scenario,
+        nitrate_only_metrics=args.nitrate_only_metrics,
+        per_target_metrics=args.per_target_metrics,
+        euclidean=args.euclidean,
+    )
