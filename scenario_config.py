@@ -94,12 +94,15 @@ def _add_disch():
 def get_test_code_config():
     """
     Variant intended only for minimal tests
-    Remaining: Fin,Fun prec + custom targets - the _get_scenario_config features are tested via SHA and TTP_tur
+    Remaining: Fin,Fun,SHA prec + custom targets - the _get_scenario_config features are tested via SHA and TTP_tur
 
     :return: Information relevant for the setup of the dataframe for PreProcessing (stations, measurements, target_feature, config_name)
     """
     scenario_type = "test_code"
-    excluded_measurements = ["disch", "doc", "elc", "prec", "tcd", "toc", "tsp", "tur", "wl"]
+    # "prec" must NOT be excluded here: Fin/Fun only measure precipitation, and
+    # without those columns the remaining measurements are all targets, leaving
+    # zero input features for the scaler/model.
+    excluded_measurements = ["disch", "doc", "elc", "tcd", "toc", "tsp", "tur", "wl"]
     custom_targets = ["NF_nit","SHA_nit","TTP_nit","TTP_tur"]
     excluded_stations = ["Air","Cha","Chi","KFS","Kur","NF","Mar","TF2","TTP","WSH"]
 

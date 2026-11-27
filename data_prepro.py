@@ -327,6 +327,13 @@ def _scale_features(train_df, val_df, test_df, target_features):
     train_features = train_df.drop(columns=target_features)
 
     # ── Safety check ──
+    if train_features.shape[1] == 0:
+        raise ValueError(
+            "Keine Eingangsfeatures vorhanden: Nach dem Entfernen der Target-Features "
+            f"{target_features} bleibt keine Prädiktor-Spalte übrig. "
+            "Bitte die Szenario-Konfiguration prüfen (mindestens ein Feature muss erhalten bleiben)."
+        )
+
     if train_features.isna().any().any():
         nan_cols = train_features.columns[train_features.isna().any()].tolist()
         raise ValueError(
